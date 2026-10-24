@@ -4,11 +4,11 @@ import {
   CloudRain, 
   Activity, 
   RefreshCw, 
-  Database, 
-  Server, 
+  FileDown, 
+  Palette, 
   AlertTriangle,
   Radio,
-  SlidersHorizontal
+  ExternalLink
 } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
@@ -16,10 +16,13 @@ import { Button } from './ui/Button';
 export function ScenarioHeader({
   scenario,
   connectionStatus,
-  dataSource, // 'live' | 'replay_pass' | 'replay_fail'
+  dataSource,
   onDataSourceChange,
   onTriggerRun,
   isLoadingRun,
+  currentTheme,
+  onThemeChange,
+  onExportReport,
 }) {
   const rainfall = scenario?.rainfall || { totalMm: 0, durationHours: 0, hourlyMm: [] };
   const hourly = rainfall.hourlyMm || [];
@@ -28,13 +31,14 @@ export function ScenarioHeader({
   return (
     <header
       style={{
-        background: 'rgba(17, 24, 39, 0.95)',
+        background: 'rgba(8, 14, 28, 0.85)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        padding: '0.85rem 1.25rem',
-        backdropFilter: 'blur(8px)',
+        padding: '0.85rem 1.5rem',
+        backdropFilter: 'blur(16px)',
         position: 'sticky',
         top: 0,
         zIndex: 1000,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
       }}
     >
       <div
@@ -48,27 +52,27 @@ export function ScenarioHeader({
           margin: '0 auto',
         }}
       >
-        {/* Brand & Mission Status */}
+        {/* Brand & City Pilot Badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div
             style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '8px',
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
               background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
+              border: '1px solid rgba(56, 189, 248, 0.5)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 12px rgba(2, 132, 199, 0.4)',
+              boxShadow: '0 0 16px rgba(2, 132, 199, 0.45)',
             }}
           >
-            <ShieldAlert size={22} color="#ffffff" />
+            <ShieldAlert size={24} color="#ffffff" />
           </div>
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.04em', color: '#f8fafc' }}>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '0.04em', color: '#f8fafc' }}>
                 FLOODSHIELD OPS
               </span>
               <span
@@ -78,107 +82,73 @@ export function ScenarioHeader({
                   color: '#38bdf8',
                   background: 'rgba(56, 189, 248, 0.12)',
                   border: '1px solid rgba(56, 189, 248, 0.3)',
-                  padding: '2px 6px',
-                  borderRadius: '3px',
+                  padding: '2px 7px',
+                  borderRadius: '4px',
                 }}
               >
                 DECISION-SUPPORT &bull; SANDBOX
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span>Bengaluru Command Center</span>
+            <div style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '1px' }}>
+              <span>Bengaluru Operations Room</span>
               <span>&bull;</span>
-              <span className="font-mono" style={{ color: '#cbd5e1' }}>Mahadevapura Pilot Area</span>
+              <span className="font-mono" style={{ color: '#cbd5e1' }}>Mahadevapura Pilot Corridor</span>
             </div>
           </div>
         </div>
 
-        {/* Center: Scenario & Meteorological Telemetry */}
+        {/* Center: Active Scenario Pill */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '1.25rem',
-            background: 'rgba(11, 15, 25, 0.6)',
-            padding: '0.4rem 0.85rem',
-            borderRadius: '6px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            gap: '1rem',
+            background: 'rgba(0, 0, 0, 0.35)',
+            padding: '0.45rem 1rem',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
-          {/* Scenario Info */}
           <div>
             <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-              Active Scenario
+              Scenario Profile
             </div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span>{scenario?.scenarioId || 'No Scenario'}</span>
+            <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span>{scenario?.scenarioId || 'blr-2022-09-replay'}</span>
               <Badge variant={scenario?.mode === 'live' ? 'danger' : 'info'}>
-                {scenario?.mode === 'live' ? 'LIVE RADAR' : 'REPLAY'}
+                {scenario?.mode === 'live' ? 'RADAR FEED' : 'REPLAY'}
               </Badge>
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,0.08)' }} />
+          <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.08)' }} />
 
-          {/* Rainfall Stats */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <CloudRain size={18} color="#38bdf8" />
             <div>
               <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-                Precipitation Event
+                Precipitation
               </div>
-              <div className="font-mono" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#38bdf8' }}>
+              <div className="font-mono" style={{ fontSize: '0.825rem', fontWeight: 700, color: '#38bdf8' }}>
                 {rainfall.totalMm} mm <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>/ {rainfall.durationHours}h</span>
               </div>
             </div>
-
-            {/* Sparkline of hourly rain */}
-            {hourly.length > 0 && (
-              <div
-                title={`Hourly rainfall distribution: ${hourly.join(', ')} mm`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  gap: '2px',
-                  height: '22px',
-                  padding: '2px 4px',
-                  background: 'rgba(0,0,0,0.3)',
-                  borderRadius: '3px',
-                }}
-              >
-                {hourly.map((val, idx) => {
-                  const heightPercent = Math.max((val / maxRain) * 100, 15);
-                  const isPeak = val === maxRain;
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        width: '4px',
-                        height: `${heightPercent}%`,
-                        background: isPeak ? '#f59e0b' : '#38bdf8',
-                        borderRadius: '1px',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Right: Source Mode, Backend Health & Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Data Source Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>Source:</span>
+        {/* Right: Controls & Pro Features */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {/* Theme Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <Palette size={14} color="#94a3b8" />
             <select
-              value={dataSource}
-              onChange={(e) => onDataSourceChange(e.target.value)}
+              value={currentTheme}
+              onChange={(e) => onThemeChange(e.target.value)}
               style={{
-                background: '#0f172a',
-                color: '#f8fafc',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '4px',
+                background: '#090d18',
+                color: '#cbd5e1',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '6px',
                 padding: '0.35rem 0.5rem',
                 fontSize: '0.75rem',
                 fontWeight: 600,
@@ -186,23 +156,44 @@ export function ScenarioHeader({
                 cursor: 'pointer',
               }}
             >
-              <option value="replay_pass">Replay Fixture: Verified Pass (Plan 001)</option>
-              <option value="replay_fail">Replay Fixture: Verification Fail / Replan (Plan 002)</option>
-              <option value="live">Live Backend API (http://localhost:3000)</option>
+              <option value="cyber">Cyber Command (Default)</option>
+              <option value="tactical">Tactical Slate</option>
+              <option value="obsidian">Minimal Obsidian</option>
             </select>
           </div>
 
-          {/* Connection Status Indicator */}
+          {/* Data Source Selector */}
+          <select
+            value={dataSource}
+            onChange={(e) => onDataSourceChange(e.target.value)}
+            style={{
+              background: '#090d18',
+              color: '#f8fafc',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              borderRadius: '6px',
+              padding: '0.35rem 0.6rem',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="replay_pass">Replay: Verified Pass (Plan 001)</option>
+            <option value="replay_fail">Replay: Verification Fail (Plan 002)</option>
+            <option value="live">Live Backend API (port 3000)</option>
+          </select>
+
+          {/* Connection Pill */}
           <div
-            title={connectionStatus.message || 'Connection Status'}
+            title={connectionStatus.message || 'Status'}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.3rem 0.6rem',
-              borderRadius: '4px',
+              gap: '0.4rem',
+              padding: '0.35rem 0.65rem',
+              borderRadius: '6px',
               fontSize: '0.72rem',
-              fontWeight: 600,
+              fontWeight: 700,
               background:
                 dataSource !== 'live'
                   ? 'rgba(100, 116, 139, 0.15)'
@@ -225,9 +216,10 @@ export function ScenarioHeader({
             }}
           >
             <span
+              className="pulse-beacon"
               style={{
-                width: '6px',
-                height: '6px',
+                width: '7px',
+                height: '7px',
                 borderRadius: '50%',
                 backgroundColor:
                   dataSource !== 'live'
@@ -237,18 +229,28 @@ export function ScenarioHeader({
                     : '#ef4444',
                 boxShadow:
                   connectionStatus.connected && dataSource === 'live'
-                    ? '0 0 6px #10b981'
+                    ? '0 0 8px #10b981'
                     : 'none',
               }}
             />
             <span>
               {dataSource !== 'live'
-                ? 'FIXTURE REPLAY'
+                ? 'REPLAY FIXTURE'
                 : connectionStatus.connected
                 ? 'BACKEND ONLINE'
-                : 'OFFLINE / DISCONNECTED'}
+                : 'DISCONNECTED'}
             </span>
           </div>
+
+          {/* Export Report Button */}
+          <Button
+            variant="outline"
+            onClick={onExportReport}
+            icon={FileDown}
+            title="Download formatted executive incident briefing dossier"
+          >
+            Export Dossier
+          </Button>
 
           {/* Run / Refresh Button */}
           <Button
@@ -257,21 +259,21 @@ export function ScenarioHeader({
             loading={isLoadingRun}
             icon={RefreshCw}
           >
-            {dataSource === 'live' ? 'Trigger Run' : 'Re-Run Scenario'}
+            {dataSource === 'live' ? 'Trigger Run' : 'Simulate Run'}
           </Button>
         </div>
       </div>
 
-      {/* Prominent Label Banner for Replay Mode (Honesty Rule) */}
+      {/* Honesty Banner for Replay Mode */}
       {dataSource !== 'live' && (
         <div
           style={{
             maxWidth: '1720px',
-            margin: '0.5rem auto 0 auto',
-            padding: '0.3rem 0.75rem',
+            margin: '0.6rem auto 0 auto',
+            padding: '0.35rem 0.85rem',
             background: 'rgba(245, 158, 11, 0.1)',
             border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '4px',
+            borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -279,14 +281,14 @@ export function ScenarioHeader({
             color: '#fcd34d',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <AlertTriangle size={14} color="#f59e0b" />
             <span>
-              <strong>OFFLINE REPLAY / FIXTURE MODE ACTIVE:</strong> Data shown is from deterministic test fixtures (Bengaluru Sep 2022 historical event). Not connected to live sensor telemetry.
+              <strong>OFFLINE REPLAY / TESTBED MODE:</strong> Operating with deterministic Bengaluru 2022 historical event data. Live radar disconnected.
             </span>
           </div>
           <span className="font-mono" style={{ fontSize: '0.68rem', color: '#fbbf24' }}>
-            Contract: AGENTS.md compliant
+            Strict Contract: AGENTS.md
           </span>
         </div>
       )}
