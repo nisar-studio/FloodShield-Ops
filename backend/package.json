@@ -1,0 +1,15 @@
+{
+  "name": "floodshield-ops-backend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "FloodShield Ops replay scenario API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
