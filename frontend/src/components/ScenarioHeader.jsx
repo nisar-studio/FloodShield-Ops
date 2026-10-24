@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, 
   CloudRain, 
@@ -6,7 +6,8 @@ import {
   FileDown, 
   AlertTriangle,
   Sun,
-  Moon
+  Moon,
+  Clock
 } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
@@ -24,12 +25,27 @@ export function ScenarioHeader({
 }) {
   const rainfall = scenario?.rainfall || { totalMm: 0, durationHours: 0, hourlyMm: [] };
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const timeStringIST = currentTime.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
   return (
     <header
       style={{
         background: 'var(--bg-surface)',
         borderBottom: '1px solid var(--border-subtle)',
-        padding: '1.1rem 2rem',
+        padding: '1rem 2rem',
         position: 'sticky',
         top: 0,
         zIndex: 1000,
@@ -65,36 +81,52 @@ export function ScenarioHeader({
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+              <span style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
                 FloodShield Ops
               </span>
               <Badge variant="neutral">
-                Bengaluru Mahadevapura
+                Mahadevapura Pilot
               </Badge>
             </div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Pre-Flood Decision-Support &bull; Sandbox Testbed
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '1px' }}>
+              Autonomous Pre-Flood Operations & Reachability Verification
             </div>
           </div>
         </div>
 
-        {/* Center: Active Scenario & Precipitation Telemetry */}
+        {/* Center: Live Ops Clock & Telemetry */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '1.5rem',
             background: 'var(--bg-surface-elevated)',
-            padding: '0.6rem 1.25rem',
+            padding: '0.55rem 1.25rem',
             borderRadius: '8px',
             border: '1px solid var(--border-subtle)',
           }}
         >
+          {/* Live Clock */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Clock size={18} color="var(--color-info)" />
+            <div>
+              <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Operations Time (IST)
+              </div>
+              <div className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {timeStringIST} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>UTC+5:30</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ width: '1px', height: '32px', background: 'var(--border-subtle)' }} />
+
+          {/* Scenario Info */}
           <div>
             <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Active Scenario
+              Scenario Profile
             </div>
-            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1px' }}>
+            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span>{scenario?.scenarioId || 'blr-2022-09-replay'}</span>
               <Badge variant={scenario?.mode === 'live' ? 'danger' : 'info'}>
                 {scenario?.mode === 'live' ? 'Live Radar' : 'Replay'}
@@ -104,27 +136,28 @@ export function ScenarioHeader({
 
           <div style={{ width: '1px', height: '32px', background: 'var(--border-subtle)' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <CloudRain size={22} color="var(--color-info)" />
+          {/* Precipitation Total */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <CloudRain size={20} color="var(--color-info)" />
             <div>
               <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Rainfall Total
+                Precipitation
               </div>
-              <div className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '1px' }}>
+              <div className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {rainfall.totalMm} mm <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>({rainfall.durationHours}h)</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right: Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          {/* Light/Dark Toggle */}
+        {/* Right: Actions & Theme Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Light / Dark Mode Toggle */}
           <button
             type="button"
             className="ops-btn ops-btn-outline"
             onClick={() => onThemeChange(currentTheme === 'dark' ? 'light' : 'dark')}
-            title="Toggle Light / Dark mode"
+            title="Toggle theme mode"
             style={{ padding: '0.65rem 0.85rem' }}
           >
             {currentTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
@@ -183,6 +216,7 @@ export function ScenarioHeader({
             }}
           >
             <span
+              className="live-beacon"
               style={{
                 width: '8px',
                 height: '8px',
@@ -213,7 +247,7 @@ export function ScenarioHeader({
             Export Dossier
           </Button>
 
-          {/* Run Button */}
+          {/* Trigger Run */}
           <Button
             variant="primary"
             onClick={onTriggerRun}
@@ -245,7 +279,7 @@ export function ScenarioHeader({
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <AlertTriangle size={16} />
             <span>
-              <strong>OFFLINE REPLAY MODE:</strong> Displaying deterministic Bengaluru Sep 2022 historical event data. Live telemetry is disconnected.
+              <strong>OFFLINE REPLAY MODE:</strong> Displaying deterministic historical event data (Bengaluru 05-Sep-2022). Live radar is disconnected.
             </span>
           </div>
           <span className="font-mono" style={{ fontSize: '0.8rem' }}>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { MapPin, Layers, ListFilter, Navigation } from 'lucide-react';
+import { MapPin, Layers, ListFilter, Navigation, Search } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 
@@ -15,26 +15,26 @@ function createMarkerIcon(type, label = '') {
   let innerSvg = '';
 
   if (type === 'hotspot') {
-    color = '#f43f5e';
+    color = '#ef4444';
     innerSvg = `<circle cx="18" cy="18" r="12" fill="${color}" fill-opacity="0.95"/>
-                <circle cx="18" cy="18" r="16" fill="none" stroke="${color}" stroke-width="2.5" stroke-opacity="0.6"/>
-                <text x="18" y="22" font-size="11" font-weight="bold" fill="#ffffff" text-anchor="middle">${label}</text>`;
+                <circle cx="18" cy="18" r="16" fill="none" stroke="${color}" stroke-width="2" stroke-opacity="0.5"/>
+                <text x="18" y="22" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">${label}</text>`;
   } else if (type === 'hospital') {
     color = '#0ea5e9';
     innerSvg = `<rect x="6" y="6" width="24" height="24" rx="6" fill="${color}" stroke="#ffffff" stroke-width="2"/>
                 <path d="M18 11 v14 M11 18 h14" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>`;
   } else if (type === 'shelter') {
-    color = '#22c55e';
+    color = '#10b981';
     innerSvg = `<rect x="6" y="6" width="24" height="24" rx="6" fill="${color}" stroke="#ffffff" stroke-width="2"/>
                 <path d="M11 23 L18 11 L25 23 Z" fill="#ffffff"/>`;
   } else if (type === 'dispatch') {
     color = '#a855f7';
-    innerSvg = `<circle cx="18" cy="18" r="13" fill="${color}" stroke="#ffffff" stroke-width="2.5"/>
+    innerSvg = `<circle cx="18" cy="18" r="13" fill="${color}" stroke="#ffffff" stroke-width="2"/>
                 <circle cx="18" cy="18" r="5" fill="#ffffff"/>`;
   }
 
   const html = `
-    <div style="width:36px; height:36px; display:flex; align-items:center; justify-content:center;">
+    <div style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));">
       <svg width="36" height="36" viewBox="0 0 36 36">${innerSvg}</svg>
     </div>
   `;
@@ -59,9 +59,10 @@ export function RiskMap({
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersLayerRef = useRef(null);
+  const overlaysLayerRef = useRef(null);
 
   const [viewMode, setViewMode] = useState('map');
-  const [mapError, setMapError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (viewMode !== 'map' || !mapContainerRef.current) return;
@@ -81,7 +82,7 @@ export function RiskMap({
         L.control.zoom({ position: 'topright' }).addTo(map);
 
         L.control.attribution({ position: 'bottomright', prefix: false })
-          .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style="color:#71717a">OpenStreetMap</a> &bull; CartoDB')
+          .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style="color:var(--text-muted)">OpenStreetMap</a> contributors')
           .addTo(map);
 
         const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -91,13 +92,16 @@ export function RiskMap({
 
         tileLayer.addTo(map);
 
+        const overlaysLayer = L.layerGroup().addTo(map);
+        overlaysLayerRef.current = overlaysLayer;
+
         const markersLayer = L.layerGroup().addTo(map);
         markersLayerRef.current = markersLayer;
+
         mapInstanceRef.current = map;
       }
     } catch (err) {
       console.error('Error initializing Leaflet map:', err);
-      setMapError('Interactive map initialization failed. Switched to coordinate list mode.');
       setViewMode('list');
     }
   }, [viewMode]);
@@ -105,19 +109,39 @@ export function RiskMap({
   useEffect(() => {
     const map = mapInstanceRef.current;
     const markersLayer = markersLayerRef.current;
-    if (!map || !markersLayer || viewMode !== 'map') return;
+    const overlaysLayer = overlaysLayerRef.current;
+    if (!map || !markersLayer || !overlaysLayer || viewMode !== 'map') return;
 
     markersLayer.clearLayers();
+    overlaysLayer.clearLayers();
     const bounds = L.latLngBounds();
 
-    // 1. Dispatch Origin Marker
+    // 1. Draw Bounding Box Zone (Pilot Area Perimeter)
+    if (bbox && bbox.south && bbox.north && bbox.west && bbox.east) {
+      const bboxPolygon = L.rectangle(
+        [
+          [bbox.south, bbox.west],
+          [bbox.north, bbox.east],
+        ],
+        {
+          color: '#0ea5e9',
+          weight: 1.5,
+          dashArray: '5, 5',
+          fillColor: '#0ea5e9',
+          fillOpacity: 0.03,
+        }
+      ).bindTooltip('Pilot Operations Zone (Mahadevapura Corridor)', { sticky: true });
+      overlaysLayer.addLayer(bboxPolygon);
+    }
+
+    // 2. Dispatch Hub Marker
     const dispatchMarker = L.marker([DISPATCH_ORIGIN.lat, DISPATCH_ORIGIN.lng], {
       icon: createMarkerIcon('dispatch'),
     }).bindPopup(`
       <div style="font-family: var(--font-sans); font-size: 14px;">
-        <div style="font-weight: 800; color: #c084fc; margin-bottom: 4px;">DISPATCH ORIGIN (T=30m Hub)</div>
-        <div style="color: #f4f4f5; font-weight:600;">${DISPATCH_ORIGIN.name}</div>
-        <div style="font-family: var(--font-mono); font-size: 12px; color: #a1a1aa; margin-top: 6px;">
+        <div style="font-weight: 700; color: #c084fc; margin-bottom: 4px;">DISPATCH HUB (T = 30 min)</div>
+        <div style="color: var(--text-primary); font-weight: 600;">${DISPATCH_ORIGIN.name}</div>
+        <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 6px;">
           Lat: ${DISPATCH_ORIGIN.lat.toFixed(4)}, Lng: ${DISPATCH_ORIGIN.lng.toFixed(4)}
         </div>
       </div>
@@ -125,7 +149,7 @@ export function RiskMap({
     markersLayer.addLayer(dispatchMarker);
     bounds.extend([DISPATCH_ORIGIN.lat, DISPATCH_ORIGIN.lng]);
 
-    // 2. Hotspots Markers
+    // 3. Hotspots
     hotspots.forEach((hs) => {
       if (typeof hs.lat === 'number' && typeof hs.lng === 'number') {
         const riskPercent = Math.round((hs.riskScore || 0) * 100);
@@ -134,13 +158,13 @@ export function RiskMap({
         }).bindPopup(`
           <div style="font-family: var(--font-sans); font-size: 14px; max-width: 280px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-              <span style="font-weight: 800; color: #fb7185;">FLOOD HOTSPOT</span>
-              <span style="background: rgba(244,63,94,0.15); color:#fb7185; padding: 2px 6px; border-radius:4px; font-weight:700; font-size:12px;">
+              <span style="font-weight: 700; color: #ef4444;">FLOOD HOTSPOT</span>
+              <span style="background: rgba(239,68,68,0.12); color:#ef4444; padding: 2px 7px; border-radius:4px; font-weight:700; font-size:12px;">
                 Risk ${(hs.riskScore || 0).toFixed(2)}
               </span>
             </div>
-            <div style="font-weight: 700; color: #fafafa; font-size: 15px;">${hs.name}</div>
-            <div style="font-size: 13px; color: #d4d4d8; margin-top: 8px;">
+            <div style="font-weight: 700; color: var(--text-primary); font-size: 15px;">${hs.name}</div>
+            <div style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">
               <strong>Contributing Factors:</strong>
               <ul style="padding-left: 16px; margin-top: 4px;">
                 ${(hs.reasons || []).map((r) => `<li>${r}</li>`).join('')}
@@ -148,7 +172,7 @@ export function RiskMap({
             </div>
             ${
               hs.floodedEdgeIds?.length
-                ? `<div style="margin-top: 8px; font-family: var(--font-mono); font-size: 11px; color: #a1a1aa;">
+                ? `<div style="margin-top: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
                     Flooded Edges: ${hs.floodedEdgeIds.join(', ')}
                    </div>`
                 : ''
@@ -162,7 +186,7 @@ export function RiskMap({
       }
     });
 
-    // 3. Facilities Markers
+    // 4. Facilities Markers & Reachability Corridors
     const perFacMap = (simulation?.perFacility || []).reduce((acc, pf) => {
       acc[pf.facilityId] = pf;
       return acc;
@@ -172,32 +196,50 @@ export function RiskMap({
       if (typeof fac.lat === 'number' && typeof fac.lng === 'number') {
         const simFac = perFacMap[fac.id];
         const isHospital = fac.type === 'hospital';
+
+        // Draw transit route line if reachable with plan
+        if (simFac?.reachableAfter) {
+          const corridorLine = L.polyline(
+            [
+              [DISPATCH_ORIGIN.lat, DISPATCH_ORIGIN.lng],
+              [fac.lat, fac.lng],
+            ],
+            {
+              color: '#10b981',
+              weight: 2,
+              opacity: 0.35,
+              dashArray: '4, 6',
+            }
+          );
+          overlaysLayer.addLayer(corridorLine);
+        }
+
         const marker = L.marker([fac.lat, fac.lng], {
           icon: createMarkerIcon(isHospital ? 'hospital' : 'shelter'),
         }).bindPopup(`
           <div style="font-family: var(--font-sans); font-size: 14px; max-width: 280px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-              <span style="font-weight: 800; color: ${isHospital ? '#38bdf8' : '#4ade80'};">
+              <span style="font-weight: 700; color: ${isHospital ? '#0ea5e9' : '#10b981'};">
                 ${(fac.type || 'FACILITY').toUpperCase()}
               </span>
-              <span style="font-family: var(--font-mono); font-size: 12px; color: #a1a1aa;">
+              <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
                 ${fac.id}
               </span>
             </div>
-            <div style="font-weight: 700; color: #fafafa; font-size: 15px;">${fac.name}</div>
+            <div style="font-weight: 700; color: var(--text-primary); font-size: 15px;">${fac.name}</div>
             
             ${
               simFac
-                ? `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 13px;">
+                ? `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); font-size: 13px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
-                      <span style="color:#a1a1aa;">Baseline:</span>
-                      <strong style="color: ${simFac.reachableBefore ? '#4ade80' : '#fb7185'};">
+                      <span style="color:var(--text-secondary);">Baseline:</span>
+                      <strong style="color: ${simFac.reachableBefore ? '#10b981' : '#ef4444'};">
                         ${simFac.reachableBefore ? `Reachable (${simFac.minutesBefore}m)` : 'Cut Off'}
                       </strong>
                     </div>
                     <div style="display:flex; justify-content:space-between;">
-                      <span style="color:#a1a1aa;">With Plan:</span>
-                      <strong style="color: ${simFac.reachableAfter ? '#4ade80' : '#fb7185'};">
+                      <span style="color:var(--text-secondary);">With Plan:</span>
+                      <strong style="color: ${simFac.reachableAfter ? '#10b981' : '#ef4444'};">
                         ${simFac.reachableAfter ? `Reachable (${simFac.minutesAfter}m)` : 'Unreachable'}
                       </strong>
                     </div>
@@ -215,7 +257,15 @@ export function RiskMap({
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
     }
-  }, [facilities, hotspots, simulation, viewMode, onSelectHotspot]);
+  }, [facilities, hotspots, simulation, bbox, viewMode, onSelectHotspot]);
+
+  // Search filter
+  const filteredHotspots = hotspots.filter(
+    (h) => h.name.toLowerCase().includes(searchQuery.toLowerCase()) || h.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const filteredFacilities = facilities.filter(
+    (f) => f.name.toLowerCase().includes(searchQuery.toLowerCase()) || f.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="ops-card" style={{ height: '540px', position: 'relative' }}>
@@ -256,31 +306,27 @@ export function RiskMap({
               fontSize: '0.95rem',
             }}
           >
-            <div
-              style={{
-                padding: '0.75rem 1.25rem',
-                marginBottom: '1.25rem',
-                background: 'var(--color-info-bg)',
-                border: '1px solid var(--color-info-border)',
-                borderRadius: '8px',
-                color: 'var(--color-info)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-              }}
-            >
-              <Navigation size={20} />
-              <span>
-                <strong>Spatial Geometry Inventory:</strong> Scenario coordinates for bounding box [12.90, 77.65] to [12.99, 77.76].
-              </span>
+            {/* Search Box */}
+            <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="Filter by facility or hotspot name (e.g. Sakra, EcoSpace)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="search-input"
+                  style={{ paddingLeft: '38px' }}
+                />
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               <div>
                 <h4 style={{ fontSize: '1rem', color: 'var(--color-danger)', textTransform: 'uppercase', marginBottom: '0.75rem', fontWeight: 700 }}>
-                  Flood Hotspots ({hotspots.length})
+                  Flood Hotspots ({filteredHotspots.length})
                 </h4>
-                {hotspots.map((hs) => (
+                {filteredHotspots.map((hs) => (
                   <div
                     key={hs.id}
                     style={{
@@ -309,9 +355,9 @@ export function RiskMap({
 
               <div>
                 <h4 style={{ fontSize: '1rem', color: 'var(--color-info)', textTransform: 'uppercase', marginBottom: '0.75rem', fontWeight: 700 }}>
-                  Critical Facilities ({facilities.length})
+                  Critical Facilities ({filteredFacilities.length})
                 </h4>
-                {facilities.map((fac) => (
+                {filteredFacilities.map((fac) => (
                   <div
                     key={fac.id}
                     style={{
@@ -359,7 +405,7 @@ export function RiskMap({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f43f5e' }} />
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
               <span style={{ color: 'var(--text-primary)' }}>Hotspot</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -367,12 +413,16 @@ export function RiskMap({
               <span style={{ color: 'var(--text-primary)' }}>Hospital</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#22c55e' }} />
+              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#10b981' }} />
               <span style={{ color: 'var(--text-primary)' }}>Shelter</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#a855f7' }} />
               <span style={{ color: 'var(--text-primary)' }}>Dispatch Hub</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '16px', height: '2px', background: '#10b981', borderTop: '2px dashed #10b981' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>Access Corridor</span>
             </div>
           </div>
         )}
