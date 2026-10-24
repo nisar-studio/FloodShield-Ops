@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, CloudRain, Droplets, Waves } from 'lucide-react';
+import { Play, Pause, RotateCcw, CloudRain } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 
@@ -11,7 +11,6 @@ export function RainfallTimelineScrubber({ rainfall, onHourChange = () => {} }) 
   const [currentHour, setCurrentHour] = useState(durationHours);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Playback timer
   useEffect(() => {
     let interval = null;
     if (isPlaying) {
@@ -50,69 +49,67 @@ export function RainfallTimelineScrubber({ rainfall, onHourChange = () => {} }) 
 
   return (
     <div
+      className="ops-card"
       style={{
-        background: 'linear-gradient(135deg, rgba(14, 25, 48, 0.75) 0%, rgba(8, 14, 28, 0.85) 100%)',
-        border: '1px solid rgba(56, 189, 248, 0.2)',
-        borderRadius: '12px',
-        padding: '1.25rem',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        padding: '1.75rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.85rem',
+        gap: '1.25rem',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div
             style={{
-              padding: '6px',
-              borderRadius: '6px',
-              background: 'rgba(56, 189, 248, 0.15)',
+              padding: '8px',
+              borderRadius: '8px',
+              background: 'var(--color-info-bg)',
+              color: 'var(--color-info)',
               display: 'flex',
               alignItems: 'center',
             }}
           >
-            <CloudRain size={18} color="#38bdf8" />
+            <CloudRain size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>
-              Meteorological Precipitation Scrubber
+            <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Storm Intensity Scrubber
             </div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-              Historical KSNDMC Doppler Radar Replay &bull; Mahadevapura Drainage Basin
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              Hour-by-hour precipitation surge &bull; KSNDMC Historical Radar
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Badge variant={activeMm >= 30 ? 'danger' : activeMm >= 15 ? 'warning' : 'info'}>
-            {activeMm >= 30 ? 'PEAK CLOUDBURST' : activeMm >= 15 ? 'HEAVY RAINFALL' : 'MODERATE'}
+            {activeMm >= 30 ? 'Peak Surge' : activeMm >= 15 ? 'Heavy Rain' : 'Moderate'}
           </Badge>
-          <div className="font-mono" style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 700 }}>
-            T + {currentHour}:00h
+          <div className="font-mono" style={{ fontSize: '1.05rem', color: 'var(--color-info)', fontWeight: 700 }}>
+            Hour {currentHour} of {durationHours}
           </div>
         </div>
       </div>
 
-      {/* Visual Hourly Precipitation Bars */}
+      {/* Hourly Bars */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${durationHours}, 1fr)`,
-          gap: '0.5rem',
+          gap: '0.75rem',
           alignItems: 'flex-end',
-          height: '65px',
-          padding: '0.4rem 0.6rem',
-          background: 'rgba(0,0,0,0.3)',
+          height: '85px',
+          padding: '0.75rem 1rem',
+          background: 'var(--bg-surface-elevated)',
           borderRadius: '8px',
-          border: '1px solid rgba(255,255,255,0.06)',
+          border: '1px solid var(--border-subtle)',
         }}
       >
         {hourly.map((val, idx) => {
           const hourNum = idx + 1;
           const isCurrent = hourNum === currentHour;
           const isPast = hourNum <= currentHour;
-          const heightPercent = Math.max((val / maxHourMm) * 100, 16);
+          const heightPercent = Math.max((val / maxHourMm) * 100, 18);
 
           return (
             <div
@@ -133,34 +130,33 @@ export function RainfallTimelineScrubber({ rainfall, onHourChange = () => {} }) 
               <div
                 className="font-mono"
                 style={{
-                  fontSize: '0.62rem',
-                  color: isCurrent ? '#38bdf8' : '#64748b',
+                  fontSize: '0.85rem',
+                  color: isCurrent ? 'var(--text-primary)' : 'var(--text-muted)',
                   fontWeight: isCurrent ? 700 : 500,
-                  marginBottom: '2px',
+                  marginBottom: '4px',
                 }}
               >
-                {val}m
+                {val}mm
               </div>
               <div
                 style={{
                   width: '100%',
                   height: `${heightPercent}%`,
                   background: isCurrent
-                    ? 'linear-gradient(180deg, #38bdf8 0%, #0284c7 100%)'
+                    ? 'var(--color-info)'
                     : isPast
-                    ? 'rgba(56, 189, 248, 0.4)'
-                    : 'rgba(255, 255, 255, 0.08)',
-                  borderRadius: '3px',
-                  boxShadow: isCurrent ? '0 0 12px rgba(56, 189, 248, 0.8)' : 'none',
-                  transition: 'all 0.2s ease',
+                    ? 'rgba(14, 165, 233, 0.4)'
+                    : 'var(--border-subtle)',
+                  borderRadius: '4px',
+                  transition: 'all 0.15s ease',
                 }}
               />
               <div
                 style={{
-                  fontSize: '0.6rem',
-                  color: isCurrent ? '#f8fafc' : '#64748b',
+                  fontSize: '0.8rem',
+                  color: isCurrent ? 'var(--text-primary)' : 'var(--text-muted)',
                   fontWeight: 600,
-                  marginTop: '2px',
+                  marginTop: '4px',
                 }}
               >
                 H{hourNum}
@@ -170,8 +166,8 @@ export function RainfallTimelineScrubber({ rainfall, onHourChange = () => {} }) 
         })}
       </div>
 
-      {/* Slider & Control Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      {/* Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <Button
           variant={isPlaying ? 'danger' : 'primary'}
           onClick={togglePlay}
@@ -200,12 +196,13 @@ export function RainfallTimelineScrubber({ rainfall, onHourChange = () => {} }) 
           style={{
             flex: 1,
             cursor: 'pointer',
-            accentColor: '#38bdf8',
+            accentColor: 'var(--color-info)',
+            height: '6px',
           }}
         />
 
-        <div style={{ fontSize: '0.75rem', color: '#cbd5e1', whiteSpace: 'nowrap' }}>
-          Cumulative: <strong className="font-mono" style={{ color: '#38bdf8' }}>{cumulativeMm} mm</strong> / {totalMm} mm
+        <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+          Cumulative: <strong className="font-mono" style={{ color: 'var(--text-primary)', fontSize: '1.05rem' }}>{cumulativeMm} mm</strong> / {totalMm} mm
         </div>
       </div>
     </div>

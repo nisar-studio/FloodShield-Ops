@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Cross, Home, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Building2, Cross, Home, CheckCircle, XCircle } from 'lucide-react';
 import { Badge } from './ui/Badge';
 
 export function FacilityReachabilityList({ facilities = [], simulation = null }) {
@@ -12,36 +12,35 @@ export function FacilityReachabilityList({ facilities = [], simulation = null })
     <div className="ops-card">
       <div className="ops-card-header">
         <div className="ops-card-title">
-          <Building2 size={16} color="#38bdf8" />
-          <span>Critical Facility Access (T = 30 min)</span>
+          <Building2 size={20} color="var(--color-info)" />
+          <span>Critical Facility Network (T = 30 min)</span>
         </div>
-        <Badge variant="neutral">{facilities.length} ASSETS</Badge>
+        <Badge variant="neutral">{facilities.length} Assets</Badge>
       </div>
 
-      <div className="ops-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+      <div className="ops-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
         {facilities.map((fac) => {
           const sim = perFacMap[fac.id];
           const isHospital = fac.type === 'hospital';
-          const isReachable = sim ? sim.reachableAfter : null;
 
           return (
             <div
               key={fac.id}
               style={{
-                background: 'rgba(15, 23, 42, 0.65)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '6px',
-                padding: '0.75rem',
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '8px',
+                padding: '1rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                   {isHospital ? (
-                    <Cross size={14} color="#38bdf8" />
+                    <Cross size={18} color="var(--color-info)" />
                   ) : (
-                    <Home size={14} color="#10b981" />
+                    <Home size={18} color="var(--color-success)" />
                   )}
-                  <span style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.8rem' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem' }}>
                     {fac.name}
                   </span>
                 </div>
@@ -50,26 +49,26 @@ export function FacilityReachabilityList({ facilities = [], simulation = null })
                 </Badge>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem' }}>
-                <span className="font-mono" style={{ color: '#64748b' }}>
-                  {fac.id} &bull; Node: {fac.nodeId}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                <span className="font-mono" style={{ color: 'var(--text-muted)' }}>
+                  {fac.id} &bull; Node {fac.nodeId}
                 </span>
 
                 {sim ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div>
                     {sim.reachableAfter ? (
-                      <span style={{ color: '#34d399', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2px' }}>
-                        <CheckCircle size={12} />
+                      <span style={{ color: 'var(--color-success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem' }}>
+                        <CheckCircle size={16} />
                         {sim.minutesAfter !== null ? `${sim.minutesAfter} min` : 'Reachable'}
                       </span>
                     ) : (
-                      <span style={{ color: '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2px' }}>
-                        <XCircle size={12} /> Unreachable
+                      <span style={{ color: 'var(--color-danger)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem' }}>
+                        <XCircle size={16} /> Cut Off
                       </span>
                     )}
                   </div>
                 ) : (
-                  <span style={{ color: '#64748b' }}>Pending simulation</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Pending simulation</span>
                 )}
               </div>
             </div>

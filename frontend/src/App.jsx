@@ -19,8 +19,7 @@ import {
   History, 
   Grid3X3,
   AlertCircle, 
-  X,
-  Sparkles
+  X
 } from 'lucide-react';
 
 export default function App() {
@@ -43,11 +42,10 @@ export default function App() {
   } = useOperationsRun();
 
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'spatial' | 'verification' | 'audit' | 'all'
-  const [currentTheme, setCurrentTheme] = useState('cyber'); // 'cyber' | 'tactical' | 'obsidian'
+  const [currentTheme, setCurrentTheme] = useState('dark'); // 'dark' | 'light'
   const [selectedHotspotId, setSelectedHotspotId] = useState(null);
   const [simulatedHour, setSimulatedHour] = useState(6);
 
-  // Sync theme with document root attribute
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
   }, [currentTheme]);
@@ -74,7 +72,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* 1. Header with Scenario, Source, Theme & Run Actions */}
+      {/* 1. Minimal Header */}
       <ScenarioHeader
         scenario={scenario}
         connectionStatus={connectionStatus}
@@ -87,14 +85,14 @@ export default function App() {
         onExportReport={handleExport}
       />
 
-      {/* 2. Spacious Tabbed Navigation (Prevents visual congestion) */}
+      {/* 2. Spacious Tabbed Navigation */}
       <nav className="nav-tab-container">
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
-          <LayoutDashboard size={16} />
+          <LayoutDashboard size={18} />
           <span>Mission Command</span>
         </button>
 
@@ -103,7 +101,7 @@ export default function App() {
           className={`nav-tab-btn ${activeTab === 'spatial' ? 'active' : ''}`}
           onClick={() => setActiveTab('spatial')}
         >
-          <Map size={16} />
+          <Map size={18} />
           <span>Spatial Geo-Intelligence ({hotspots.length} Hotspots)</span>
         </button>
 
@@ -112,8 +110,8 @@ export default function App() {
           className={`nav-tab-btn ${activeTab === 'verification' ? 'active' : ''}`}
           onClick={() => setActiveTab('verification')}
         >
-          <BrainCircuit size={16} />
-          <span>AI Mitigations & Verifier</span>
+          <BrainCircuit size={18} />
+          <span>AI Mitigations & Verification</span>
         </button>
 
         <button
@@ -121,7 +119,7 @@ export default function App() {
           className={`nav-tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
           onClick={() => setActiveTab('audit')}
         >
-          <History size={16} />
+          <History size={18} />
           <span>Incident Audit Trail ({auditEntries.length})</span>
         </button>
 
@@ -132,32 +130,32 @@ export default function App() {
             onClick={() => setActiveTab(activeTab === 'all' ? 'overview' : 'all')}
             title="Toggle full 3-column command grid"
           >
-            <Grid3X3 size={16} />
-            <span>{activeTab === 'all' ? 'Tabbed Mode' : 'Expanded Grid'}</span>
+            <Grid3X3 size={18} />
+            <span>{activeTab === 'all' ? 'Tabbed View' : 'All Panels'}</span>
           </button>
         </div>
       </nav>
 
-      {/* Error Banner */}
+      {/* Dismissible Error Notice */}
       {errorMessage && (
         <div
           style={{
             maxWidth: '1720px',
-            margin: '0.75rem auto 0 auto',
-            width: 'calc(100% - 3rem)',
-            padding: '0.65rem 1.25rem',
-            background: 'rgba(239, 68, 68, 0.14)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
+            margin: '1rem auto 0 auto',
+            width: 'calc(100% - 4rem)',
+            padding: '0.85rem 1.25rem',
+            background: 'var(--color-danger-bg)',
+            border: '1px solid var(--color-danger-border)',
             borderRadius: '8px',
-            color: '#fca5a5',
-            fontSize: '0.8rem',
+            color: 'var(--color-danger)',
+            fontSize: '0.95rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <AlertCircle size={18} color="#ef4444" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AlertCircle size={20} />
             <span>{errorMessage}</span>
           </div>
           <button
@@ -166,31 +164,28 @@ export default function App() {
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#fca5a5',
+              color: 'var(--color-danger)',
               cursor: 'pointer',
             }}
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
       )}
 
-      {/* 3. Main Views (Spacious, Uncongested Layout) */}
+      {/* 3. Main Views */}
       <div className="view-container">
-        {/* TAB 1: Mission Command Overview */}
+        {/* TAB 1: Mission Command */}
         {activeTab === 'overview' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* 3D Gauge & Storm Timeline Scrubber */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '1.5rem' }}>
               <Reachability3DGauge simulation={simulation} threshold={simulation?.threshold || 0.8} />
               <RainfallTimelineScrubber rainfall={scenario?.rainfall} onHourChange={setSimulatedHour} />
             </div>
 
-            {/* Workflow Pipeline */}
             <WorkflowTracker steps={steps} currentIteration={iteration} planStatus={plan?.status} />
 
-            {/* Operator Approval & Urgent Actions */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.5rem' }}>
               <ApprovalPanel
                 plan={plan}
                 simulation={simulation}
@@ -205,7 +200,7 @@ export default function App() {
 
         {/* TAB 2: Spatial Geo-Intelligence */}
         {activeTab === 'spatial' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.25rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '1.5rem', alignItems: 'start' }}>
             <RiskMap
               facilities={facilities}
               hotspots={hotspots}
@@ -214,7 +209,7 @@ export default function App() {
               selectedHotspotId={selectedHotspotId}
               onSelectHotspot={setSelectedHotspotId}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <HotspotList
                 hotspots={hotspots}
                 selectedHotspotId={selectedHotspotId}
@@ -225,15 +220,15 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: AI Mitigations & Verifier Lab */}
+        {/* TAB 3: AI Mitigations & Verification */}
         {activeTab === 'verification' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
             <ScoreComparison
               simulation={simulation}
               planStatus={plan?.status}
               iteration={iteration}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <PlanActions plan={plan} isApproved={isApproved} />
               <ApprovalPanel
                 plan={plan}
@@ -246,36 +241,36 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 4: Audit Log & Incident Trail */}
+        {/* TAB 4: Incident Audit Trail */}
         {activeTab === 'audit' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 className="ops-btn ops-btn-primary"
                 onClick={handleExport}
               >
-                Export Full Official Dossier (.md)
+                Export Incident Dossier (.md)
               </button>
             </div>
             <AuditTimeline auditEntries={auditEntries} />
           </div>
         )}
 
-        {/* EXPANDED GRID VIEW (If operator toggles "Expanded Grid") */}
+        {/* Expanded Grid Mode */}
         {activeTab === 'all' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <Reachability3DGauge simulation={simulation} threshold={simulation?.threshold || 0.8} />
             <WorkflowTracker steps={steps} currentIteration={iteration} planStatus={plan?.status} />
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '320px 1fr 380px',
-                gap: '1.25rem',
+                gridTemplateColumns: '360px 1fr 420px',
+                gap: '1.5rem',
                 alignItems: 'start',
               }}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <HotspotList
                   hotspots={hotspots}
                   selectedHotspotId={selectedHotspotId}
@@ -284,7 +279,7 @@ export default function App() {
                 <FacilityReachabilityList facilities={facilities} simulation={simulation} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <RiskMap
                   facilities={facilities}
                   hotspots={hotspots}
@@ -300,7 +295,7 @@ export default function App() {
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <ApprovalPanel
                   plan={plan}
                   simulation={simulation}

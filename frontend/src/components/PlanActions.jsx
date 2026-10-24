@@ -5,7 +5,6 @@ import {
   ArrowRightLeft, 
   Droplet, 
   Ambulance, 
-  ShieldCheck, 
   AlertCircle,
   Sparkles,
   Link2
@@ -13,10 +12,10 @@ import {
 import { Badge } from './ui/Badge';
 
 const ACTION_TYPE_META = {
-  road_closure: { label: 'Road Closure', icon: Ban, color: '#ef4444', badge: 'danger' },
-  diversion: { label: 'Route Diversion', icon: ArrowRightLeft, color: '#f59e0b', badge: 'warning' },
-  pump_prepositioning: { label: 'Pump Deployment', icon: Droplet, color: '#06b6d4', badge: 'info' },
-  ambulance_staging: { label: 'Ambulance Staging', icon: Ambulance, color: '#10b981', badge: 'success' },
+  road_closure: { label: 'Road Closure', icon: Ban, color: 'var(--color-danger)', badge: 'danger' },
+  diversion: { label: 'Route Diversion', icon: ArrowRightLeft, color: 'var(--color-warning)', badge: 'warning' },
+  pump_prepositioning: { label: 'Pump Deployment', icon: Droplet, color: 'var(--color-info)', badge: 'info' },
+  ambulance_staging: { label: 'Ambulance Staging', icon: Ambulance, color: 'var(--color-success)', badge: 'success' },
 };
 
 export function PlanActions({ plan, isApproved = false }) {
@@ -25,73 +24,69 @@ export function PlanActions({ plan, isApproved = false }) {
       <div className="ops-card">
         <div className="ops-card-header">
           <div className="ops-card-title">
-            <BrainCircuit size={16} color="#8b5cf6" />
-            <span>AI Planner Mitigating Actions</span>
+            <BrainCircuit size={20} color="var(--color-ai)" />
+            <span>AI Mitigating Actions</span>
           </div>
-          <Badge variant="neutral">NO PLAN GENERATED</Badge>
+          <Badge variant="neutral">No Actions</Badge>
         </div>
-        <div className="ops-card-body" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-          <AlertCircle size={28} color="#64748b" style={{ margin: '0 auto 0.75rem auto' }} />
-          <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-            No candidate mitigation actions available.
-          </div>
-          <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-            Trigger a run to prompt the Gemini planner.
+        <div className="ops-card-body" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+          <AlertCircle size={36} color="var(--text-muted)" style={{ margin: '0 auto 1rem auto' }} />
+          <div style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
+            No candidate mitigation actions proposed.
           </div>
         </div>
       </div>
     );
   }
 
-  const { planId, iteration = 1, status = 'proposed', actions = [] } = plan;
+  const { planId, iteration = 1, actions = [] } = plan;
 
   return (
     <div className="ops-card">
       <div className="ops-card-header">
         <div className="ops-card-title">
-          <BrainCircuit size={16} color="#8b5cf6" />
-          <span>AI Planner Proposed Actions</span>
+          <BrainCircuit size={20} color="var(--color-ai)" />
+          <span>AI Proposed Mitigating Actions</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Badge variant={isApproved ? 'success' : 'ai'}>
-            {isApproved ? 'OPERATOR APPROVED' : `PROPOSED (ITERATION ${iteration})`}
+            {isApproved ? 'Operator Approved' : `Proposed (Iter ${iteration})`}
           </Badge>
-          <span className="font-mono" style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+          <span className="font-mono" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             {planId}
           </span>
         </div>
       </div>
 
-      <div className="ops-card-body">
-        {/* Prominent Disclaimer */}
+      <div className="ops-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Notice */}
         <div
           style={{
-            padding: '0.5rem 0.75rem',
-            background: 'rgba(139, 92, 246, 0.08)',
-            border: '1px solid rgba(139, 92, 246, 0.25)',
-            borderRadius: '4px',
-            fontSize: '0.72rem',
-            color: '#c4b5fd',
-            marginBottom: '0.85rem',
+            padding: '0.75rem 1rem',
+            background: 'var(--color-ai-bg)',
+            border: '1px solid var(--color-ai-border)',
+            borderRadius: '6px',
+            fontSize: '0.9rem',
+            color: 'var(--color-ai)',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: '0.65rem',
           }}
         >
-          <Sparkles size={14} color="#a78bfa" style={{ flexShrink: 0 }} />
+          <Sparkles size={18} style={{ flexShrink: 0 }} />
           <span>
-            <strong>AI-Generated Candidate Mitigations:</strong> Proposed by LLM orchestrator. Cannot be executed without passing deterministic simulation verification and receiving explicit human operator sign-off.
+            <strong>Candidate Interventions:</strong> Generated by LLM planner. Must pass deterministic verification and receive human sign-off before dispatch.
           </span>
         </div>
 
-        {/* Action List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {/* Action Cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {actions.map((act, index) => {
             const meta = ACTION_TYPE_META[act.type] || {
               label: act.type || 'Action',
               icon: AlertCircle,
-              color: '#94a3b8',
+              color: 'var(--text-muted)',
               badge: 'neutral',
             };
             const Icon = meta.icon;
@@ -100,77 +95,77 @@ export function PlanActions({ plan, isApproved = false }) {
               <div
                 key={act.actionId || index}
                 style={{
-                  background: 'rgba(15, 23, 42, 0.65)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '6px',
-                  padding: '0.75rem',
+                  background: 'var(--bg-surface-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '8px',
+                  padding: '1.25rem',
                 }}
               >
-                {/* Action Card Top Row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                     <div
                       style={{
-                        padding: '4px',
-                        background: 'rgba(255,255,255,0.05)',
-                        borderRadius: '4px',
+                        padding: '6px',
+                        background: 'var(--bg-surface)',
+                        borderRadius: '6px',
                         display: 'flex',
                         alignItems: 'center',
                       }}
                     >
-                      <Icon size={14} color={meta.color} />
+                      <Icon size={18} color={meta.color} />
                     </div>
                     <Badge variant={meta.badge}>
                       {meta.label}
                     </Badge>
-                    <span className="font-mono" style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                    <span className="font-mono" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       {act.actionId}
                     </span>
                   </div>
 
                   {typeof act.confidence === 'number' && (
-                    <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>
-                      Confidence: <strong className="font-mono" style={{ color: '#38bdf8' }}>{(act.confidence * 100).toFixed(0)}%</strong>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      Confidence: <strong className="font-mono" style={{ color: 'var(--color-info)' }}>{(act.confidence * 100).toFixed(0)}%</strong>
                     </div>
                   )}
                 </div>
 
                 {/* Target */}
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.3rem' }}>
-                  Target: {act.target?.label || (Array.isArray(act.target?.edgeIds) ? act.target.edgeIds.join(', ') : 'Unspecified target')}
+                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                  Target: {act.target?.label || (Array.isArray(act.target?.edgeIds) ? act.target.edgeIds.join(', ') : 'Location')}
                 </div>
 
                 {/* Rationale */}
-                <div style={{ fontSize: '0.75rem', color: '#cbd5e1', lineHeight: '1.4', marginBottom: '0.4rem' }}>
-                  <span style={{ color: '#94a3b8' }}>Rationale: </span>
+                <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '0.75rem' }}>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Rationale: </span>
                   {act.rationale}
                 </div>
 
-                {/* Evidence & Edge IDs */}
+                {/* Evidence */}
                 <div
                   style={{
                     display: 'flex',
                     flexWrap: 'wrap',
                     alignItems: 'center',
-                    gap: '0.4rem',
-                    paddingTop: '0.4rem',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                    gap: '0.5rem',
+                    paddingTop: '0.65rem',
+                    borderTop: '1px solid var(--border-subtle)',
+                    fontSize: '0.85rem',
                   }}
                 >
-                  <span style={{ fontSize: '0.68rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                    <Link2 size={11} /> Evidence:
+                  <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Link2 size={14} /> Evidence:
                   </span>
                   {(act.evidence || []).map((ev, evIdx) => (
                     <span
                       key={evIdx}
                       className="font-mono"
                       style={{
-                        fontSize: '0.65rem',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        color: '#94a3b8',
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border-subtle)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        color: 'var(--text-secondary)',
                       }}
                     >
                       {ev}
@@ -182,8 +177,7 @@ export function PlanActions({ plan, isApproved = false }) {
                       className="font-mono"
                       style={{
                         marginLeft: 'auto',
-                        fontSize: '0.65rem',
-                        color: '#64748b',
+                        color: 'var(--text-muted)',
                       }}
                     >
                       Edges: {act.target.edgeIds.join(', ')}

@@ -13,12 +13,12 @@ import {
 import { Badge } from './ui/Badge';
 
 const ACTOR_META = {
-  sentinel: { label: 'Sentinel Telemetry', variant: 'info', icon: Radar },
+  sentinel: { label: 'Sentinel', variant: 'info', icon: Radar },
   risk: { label: 'Risk Engine', variant: 'danger', icon: Flame },
   planner: { label: 'Gemini Planner', variant: 'ai', icon: Brain },
-  verifier: { label: 'Reachability Verifier', variant: 'success', icon: CheckCircle },
-  comms: { label: 'Advisory Comms', variant: 'warning', icon: Terminal },
-  operator: { label: 'Control Room Operator', variant: 'warning', icon: UserCheck },
+  verifier: { label: 'Graph Verifier', variant: 'success', icon: CheckCircle },
+  comms: { label: 'Advisory', variant: 'warning', icon: Terminal },
+  operator: { label: 'Operator', variant: 'warning', icon: UserCheck },
 };
 
 export function AuditTimeline({ auditEntries = [] }) {
@@ -36,13 +36,13 @@ export function AuditTimeline({ auditEntries = [] }) {
       <div className="ops-card">
         <div className="ops-card-header">
           <div className="ops-card-title">
-            <History size={16} color="#38bdf8" />
+            <History size={20} color="var(--color-info)" />
             <span>Immutable Audit Trail</span>
           </div>
-          <Badge variant="neutral">0 EVENTS</Badge>
+          <Badge variant="neutral">0 Events</Badge>
         </div>
-        <div className="ops-card-body" style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
-          <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+        <div className="ops-card-body" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
             No audit records registered for current operational run.
           </div>
         </div>
@@ -54,102 +54,98 @@ export function AuditTimeline({ auditEntries = [] }) {
     <div className="ops-card">
       <div className="ops-card-header">
         <div className="ops-card-title">
-          <History size={16} color="#38bdf8" />
+          <History size={20} color="var(--color-info)" />
           <span>Operational Audit Trail</span>
         </div>
-        <Badge variant="neutral">{auditEntries.length} LOGGED EVENTS</Badge>
+        <Badge variant="neutral">{auditEntries.length} Recorded Events</Badge>
       </div>
 
-      <div className="ops-card-body" style={{ padding: '0.75rem', maxHeight: '360px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {auditEntries.map((entry, idx) => {
-            const actorInfo = ACTOR_META[entry.actor] || {
-              label: entry.actor || 'System',
-              variant: 'neutral',
-              icon: Terminal,
-            };
-            const Icon = actorInfo.icon;
-            const isExpanded = !!expandedIndices[idx];
-            const hasPayload = entry.payload && Object.keys(entry.payload).length > 0;
+      <div className="ops-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '480px', overflowY: 'auto' }}>
+        {auditEntries.map((entry, idx) => {
+          const actorInfo = ACTOR_META[entry.actor] || {
+            label: entry.actor || 'System',
+            variant: 'neutral',
+            icon: Terminal,
+          };
+          const Icon = actorInfo.icon;
+          const isExpanded = !!expandedIndices[idx];
+          const hasPayload = entry.payload && Object.keys(entry.payload).length > 0;
 
-            // Format timestamp cleanly
-            let timeStr = entry.ts || '';
-            try {
-              if (entry.ts) {
-                const date = new Date(entry.ts);
-                timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              }
-            } catch (err) {
-              timeStr = entry.ts;
+          let timeStr = entry.ts || '';
+          try {
+            if (entry.ts) {
+              const date = new Date(entry.ts);
+              timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             }
+          } catch (err) {
+            timeStr = entry.ts;
+          }
 
-            return (
-              <div
-                key={idx}
-                style={{
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  borderRadius: '5px',
-                  padding: '0.6rem 0.75rem',
-                  fontSize: '0.75rem',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Icon size={13} color="#94a3b8" />
-                    <Badge variant={actorInfo.variant} style={{ fontSize: '0.62rem' }}>
-                      {actorInfo.label}
-                    </Badge>
-                    <span className="font-mono" style={{ fontWeight: 700, color: '#f8fafc' }}>
-                      {entry.event}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span className="font-mono" style={{ color: '#64748b', fontSize: '0.68rem' }}>
-                      {timeStr}
-                    </span>
-                    {hasPayload && (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(idx)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#94a3b8',
-                          cursor: 'pointer',
-                          padding: '2px',
-                        }}
-                      >
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </button>
-                    )}
-                  </div>
+          return (
+            <div
+              key={idx}
+              style={{
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '8px',
+                padding: '0.85rem 1.25rem',
+                fontSize: '0.95rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <Icon size={16} color="var(--text-muted)" />
+                  <Badge variant={actorInfo.variant}>
+                    {actorInfo.label}
+                  </Badge>
+                  <span className="font-mono" style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                    {entry.event}
+                  </span>
                 </div>
 
-                {/* Expandable Payload */}
-                {hasPayload && isExpanded && (
-                  <pre
-                    className="font-mono"
-                    style={{
-                      marginTop: '0.5rem',
-                      padding: '0.5rem',
-                      background: 'rgba(0,0,0,0.4)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
-                      borderRadius: '4px',
-                      fontSize: '0.68rem',
-                      color: '#a7f3d0',
-                      overflowX: 'auto',
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {JSON.stringify(entry.payload, null, 2)}
-                  </pre>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <span className="font-mono" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    {timeStr}
+                  </span>
+                  {hasPayload && (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(idx)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                      }}
+                    >
+                      {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    </button>
+                  )}
+                </div>
               </div>
-            );
-          })}
-        </div>
+
+              {hasPayload && isExpanded && (
+                <pre
+                  className="font-mono"
+                  style={{
+                    marginTop: '0.75rem',
+                    padding: '0.75rem',
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-primary)',
+                    overflowX: 'auto',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {JSON.stringify(entry.payload, null, 2)}
+                </pre>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

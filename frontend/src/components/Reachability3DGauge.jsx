@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, ShieldAlert, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, TrendingUp } from 'lucide-react';
 import { Badge } from './ui/Badge';
 
 export function Reachability3DGauge({ simulation, threshold = 0.8 }) {
@@ -11,96 +11,71 @@ export function Reachability3DGauge({ simulation, threshold = 0.8 }) {
   const planPercent = Math.round(planScore * 100);
   const thresholdPercent = Math.round(threshold * 100);
 
-  // SVG Gauge calculations (radius = 70, circumference = 2 * PI * 70 = 439.82)
-  const radius = 70;
+  // SVG Gauge calculations (radius = 75, circ = 471.2)
+  const radius = 75;
   const circ = 2 * Math.PI * radius;
   const offsetPlan = circ - (planScore * circ);
   const offsetBase = circ - (baselineScore * circ);
 
-  // Delta improvement
   const delta = (planScore - baselineScore) * 100;
 
   return (
     <div
+      className="ops-card"
       style={{
         display: 'flex',
+        flexDirection: 'row',
         flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-around',
-        gap: '1.5rem',
-        padding: '1.25rem',
-        background: 'linear-gradient(145deg, rgba(14, 22, 42, 0.7) 0%, rgba(6, 10, 20, 0.85) 100%)',
-        border: '1px solid rgba(56, 189, 248, 0.15)',
-        borderRadius: '12px',
-        boxShadow: '0 12px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)',
-        position: 'relative',
-        overflow: 'hidden',
+        gap: '2rem',
+        padding: '2rem',
       }}
     >
-      {/* Background ambient lighting */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-30%',
-          right: '-10%',
-          width: '200px',
-          height: '200px',
-          borderRadius: '50%',
-          background: passed
-            ? 'radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(239, 68, 68, 0.18) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* 3D Gauge Circle */}
-      <div style={{ position: 'relative', width: '180px', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg width="180" height="180" viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)' }}>
-          {/* Track Circle */}
+      {/* Radial Metric Ring */}
+      <div style={{ position: 'relative', width: '190px', height: '190px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="190" height="190" viewBox="0 0 190 190" style={{ transform: 'rotate(-90deg)' }}>
+          {/* Track */}
           <circle
-            cx="90"
-            cy="90"
+            cx="95"
+            cy="95"
             r={radius}
             fill="transparent"
-            stroke="rgba(255, 255, 255, 0.06)"
-            strokeWidth="12"
+            stroke="var(--border-subtle)"
+            strokeWidth="14"
           />
 
-          {/* Baseline Score Arc (Muted white-blue) */}
+          {/* Baseline Arc */}
           <circle
-            cx="90"
-            cy="90"
+            cx="95"
+            cy="95"
             r={radius}
             fill="transparent"
-            stroke="rgba(148, 163, 184, 0.3)"
-            strokeWidth="12"
+            stroke="var(--border-medium)"
+            strokeWidth="14"
             strokeDasharray={circ}
             strokeDashoffset={offsetBase}
             strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 1s ease' }}
           />
 
-          {/* Plan Score Arc (Vibrant emerald if pass, vibrant red if fail) */}
+          {/* Plan Arc */}
           <circle
-            cx="90"
-            cy="90"
+            cx="95"
+            cy="95"
             r={radius}
             fill="transparent"
-            stroke={passed ? '#10b981' : '#ef4444'}
-            strokeWidth="12"
+            stroke={passed ? 'var(--color-success)' : 'var(--color-danger)'}
+            strokeWidth="14"
             strokeDasharray={circ}
             strokeDashoffset={offsetPlan}
             strokeLinecap="round"
             style={{
-              transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              filter: passed
-                ? 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.6))'
-                : 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.6))',
+              transition: 'stroke-dashoffset 0.8s ease',
             }}
           />
         </svg>
 
-        {/* Center Readout */}
+        {/* Center Text */}
         <div
           style={{
             position: 'absolute',
@@ -111,66 +86,65 @@ export function Reachability3DGauge({ simulation, threshold = 0.8 }) {
             textAlign: 'center',
           }}
         >
-          <div className="font-mono" style={{ fontSize: '1.85rem', fontWeight: 800, color: '#f8fafc', lineHeight: 1 }}>
+          <div className="font-mono" style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
             {planPercent}%
           </div>
-          <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#94a3b8', marginTop: '4px', fontWeight: 600 }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', fontWeight: 600 }}>
             Reachability
           </div>
           <Badge
             variant={passed ? 'success' : 'danger'}
-            style={{ marginTop: '4px', fontSize: '0.62rem', padding: '2px 5px' }}
+            style={{ marginTop: '6px' }}
           >
-            {passed ? 'VERIFIED PASS' : 'REJECTED'}
+            {passed ? 'Verified' : 'Rejected'}
           </Badge>
         </div>
       </div>
 
-      {/* Metrics & Delta Info */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', minWidth: '220px' }}>
+      {/* Metrics Readout */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '260px' }}>
         <div>
-          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>
-            Deterministic Graph Verifier
+          <div style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+            Deterministic Simulator Check
           </div>
-          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '4px' }}>
             {passed ? (
               <>
-                <ShieldCheck size={20} color="#10b981" />
-                <span>Threshold Cleared</span>
+                <ShieldCheck size={22} color="var(--color-success)" />
+                <span>Safety Threshold Cleared</span>
               </>
             ) : (
               <>
-                <ShieldAlert size={20} color="#ef4444" />
-                <span>Verification Failed</span>
+                <ShieldAlert size={22} color="var(--color-danger)" />
+                <span>Safety Threshold Failed</span>
               </>
             )}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-          <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.5rem 0.65rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Baseline Score:</div>
-            <div className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: '#cbd5e1' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <div style={{ background: 'var(--bg-surface-elevated)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Baseline:</div>
+            <div className="font-mono" style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
               {baselinePercent}%
             </div>
           </div>
 
-          <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.5rem 0.65rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Target Safety Line:</div>
-            <div className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: '#38bdf8' }}>
+          <div style={{ background: 'var(--bg-surface-elevated)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Required:</div>
+            <div className="font-mono" style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--color-info)', marginTop: '2px' }}>
               {thresholdPercent}%
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#cbd5e1' }}>
-          <TrendingUp size={16} color={passed ? '#10b981' : '#f59e0b'} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+          <TrendingUp size={18} color={passed ? 'var(--color-success)' : 'var(--color-warning)'} />
           <span>
-            Net Change:{' '}
-            <strong className="font-mono" style={{ color: delta >= 0 ? '#10b981' : '#ef4444' }}>
+            Net Access Change:{' '}
+            <strong className="font-mono" style={{ color: delta >= 0 ? 'var(--color-success)' : 'var(--color-danger)', fontSize: '1.05rem' }}>
               {delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`}
-            </strong>{' '}
-            reachable access
+            </strong>
           </span>
         </div>
       </div>
