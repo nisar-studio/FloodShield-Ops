@@ -1,0 +1,250 @@
+{
+  "scenario": {
+    "scenarioId": "blr-2022-09-replay",
+    "mode": "replay",
+    "areaName": "Bengaluru - Mahadevapura corridor",
+    "bbox": {
+      "south": 12.90,
+      "north": 12.99,
+      "west": 77.65,
+      "east": 77.76
+    },
+    "rainfall": {
+      "totalMm": 125,
+      "durationHours": 6,
+      "hourlyMm": [5, 10, 20, 35, 35, 20]
+    },
+    "source": "KSNDMC historical rain gauge records (Doddanekundi & Marathahalli stations, 05-Sep-2022)"
+  },
+  "facilities": [
+    {
+      "id": "fac_001",
+      "type": "hospital",
+      "name": "Sakra World Hospital",
+      "lat": 12.9255,
+      "lng": 77.6845,
+      "nodeId": "node_sakra"
+    },
+    {
+      "id": "fac_002",
+      "type": "hospital",
+      "name": "Manipal Hospital Varthur Road",
+      "lat": 12.9572,
+      "lng": 77.7391,
+      "nodeId": "node_manipal_varthur"
+    },
+    {
+      "id": "fac_003",
+      "type": "hospital",
+      "name": "Rainbow Children's Hospital Marathahalli",
+      "lat": 12.9497,
+      "lng": 77.7011,
+      "nodeId": "node_rainbow_marathahalli"
+    },
+    {
+      "id": "fac_004",
+      "type": "shelter",
+      "name": "Mahadevapura Community Center Shelter",
+      "lat": 12.9868,
+      "lng": 77.6972,
+      "nodeId": "node_mahadevapura_hall"
+    },
+    {
+      "id": "fac_005",
+      "type": "shelter",
+      "name": "Bellandur Relief Staging Post",
+      "lat": 12.9351,
+      "lng": 77.6710,
+      "nodeId": "node_bellandur_relief"
+    },
+    {
+      "id": "fac_006",
+      "type": "shelter",
+      "name": "Marathahalli Sports Complex Relief Camp",
+      "lat": 12.9550,
+      "lng": 77.7080,
+      "nodeId": "node_marathahalli_sports"
+    }
+  ],
+  "hotspots": [
+    {
+      "id": "hs_001",
+      "name": "Outer Ring Road EcoSpace Underpass",
+      "lat": 12.9260,
+      "lng": 77.6830,
+      "riskScore": 0.92,
+      "reasons": [
+        "Low elevation underpass sump",
+        "Bellandur lake overflow channel surge",
+        "Peak forecast rain exceeds 35mm/h"
+      ],
+      "floodedEdgeIds": ["edge_orr_ecospace_n", "edge_orr_ecospace_s"]
+    },
+    {
+      "id": "hs_002",
+      "name": "Rainbow Drive / Sarjapur Road Junction",
+      "lat": 12.9110,
+      "lng": 77.6795,
+      "riskScore": 0.85,
+      "reasons": [
+        "Natural watershed depression bowl",
+        "Culvert cross-section capacity deficit",
+        "Historical deep inundation threshold"
+      ],
+      "floodedEdgeIds": ["edge_sarjapur_rd_culvert", "edge_rainbow_drive_access"]
+    },
+    {
+      "id": "hs_003",
+      "name": "Marathahalli Bridge ORR Merge",
+      "lat": 12.9525,
+      "lng": 77.7015,
+      "riskScore": 0.78,
+      "reasons": [
+        "Major storm drain backflow",
+        "Western flyover ramp runoff ponding"
+      ],
+      "floodedEdgeIds": ["edge_marathahalli_merge_w"]
+    },
+    {
+      "id": "hs_004",
+      "name": "Panathur Railway Subway & Varthur Link",
+      "lat": 12.9412,
+      "lng": 77.7120,
+      "riskScore": 0.74,
+      "reasons": [
+        "Railway underpass low point",
+        "Varthur lake secondary drain bottleneck"
+      ],
+      "floodedEdgeIds": ["edge_panathur_subway"]
+    }
+  ],
+  "currentRun": {
+    "runId": "run_replay_001",
+    "scenarioId": "blr-2022-09-replay",
+    "status": "waiting_approval",
+    "steps": [
+      { "name": "SENSE", "status": "passed", "detail": "Rainfall & watershed telemetry ingested (125mm over 6h)" },
+      { "name": "ASSESS", "status": "passed", "detail": "4 critical flood hotspots scored across Mahadevapura" },
+      { "name": "PLAN", "status": "passed", "detail": "AI planner generated 4 coordinated mitigating actions (Iteration 1)" },
+      { "name": "VERIFY", "status": "passed", "detail": "Simulator reachability: 83.3% >= 80% threshold (PASSED)" },
+      { "name": "APPROVE", "status": "waiting_approval", "detail": "Awaiting explicit operator authorization" },
+      { "name": "SANDBOX", "status": "pending", "detail": "Pending operator gate clearance" }
+    ],
+    "plan": {
+      "planId": "plan_001",
+      "scenarioId": "blr-2022-09-replay",
+      "iteration": 1,
+      "status": "verified",
+      "actions": [
+        {
+          "actionId": "act_001",
+          "type": "road_closure",
+          "target": {
+            "edgeIds": ["edge_orr_ecospace_n", "edge_orr_ecospace_s"],
+            "label": "Outer Ring Road EcoSpace Underpass (Both Directions)"
+          },
+          "rationale": "Inundation depth exceeds 0.45m; prevent private vehicle trapping and enforce emergency-only perimeter",
+          "evidence": ["hotspot hs_001", "rainfall forecast 35mm/h peak"],
+          "confidence": 0.92
+        },
+        {
+          "actionId": "act_002",
+          "type": "pump_prepositioning",
+          "target": {
+            "edgeIds": ["edge_sarjapur_rd_culvert"],
+            "label": "Rainbow Drive / Sarjapur Culvert Station"
+          },
+          "rationale": "Deploy 2x high-capacity 500 HP dewatering pumps to keep arterial connection open to Sakra & Bellandur",
+          "evidence": ["hotspot hs_002", "culvert discharge rate deficit"],
+          "confidence": 0.85
+        },
+        {
+          "actionId": "act_003",
+          "type": "diversion",
+          "target": {
+            "edgeIds": ["edge_marathahalli_merge_w"],
+            "label": "Marathahalli Flyover Western Ramp to HAL Service Lane"
+          },
+          "rationale": "Divert emergency dispatch and outbound ambulances via HAL Old Airport service corridor to bypass ponded merge",
+          "evidence": ["hotspot hs_003", "facility fac_003 access pathway"],
+          "confidence": 0.81
+        },
+        {
+          "actionId": "act_004",
+          "type": "ambulance_staging",
+          "target": {
+            "edgeIds": ["edge_panathur_subway"],
+            "label": "Panathur - Varthur Forward Paramedic Staging Base"
+          },
+          "rationale": "Pre-position 2 high-clearance paramedic units east of subway to preserve direct access to Manipal Varthur",
+          "evidence": ["hotspot hs_004", "facility fac_002 accessibility buffer"],
+          "confidence": 0.88
+        }
+      ]
+    },
+    "simulation": {
+      "planId": "plan_001",
+      "baselineScore": 0.50,
+      "planScore": 0.833,
+      "threshold": 0.80,
+      "passed": true,
+      "perFacility": [
+        {
+          "facilityId": "fac_001",
+          "name": "Sakra World Hospital",
+          "reachableBefore": true,
+          "reachableAfter": true,
+          "minutesBefore": 14,
+          "minutesAfter": 12
+        },
+        {
+          "facilityId": "fac_002",
+          "name": "Manipal Hospital Varthur Road",
+          "reachableBefore": false,
+          "reachableAfter": true,
+          "minutesBefore": null,
+          "minutesAfter": 26
+        },
+        {
+          "facilityId": "fac_003",
+          "name": "Rainbow Children's Hospital Marathahalli",
+          "reachableBefore": true,
+          "reachableAfter": true,
+          "minutesBefore": 20,
+          "minutesAfter": 17
+        },
+        {
+          "facilityId": "fac_004",
+          "name": "Mahadevapura Community Center Shelter",
+          "reachableBefore": false,
+          "reachableAfter": true,
+          "minutesBefore": null,
+          "minutesAfter": 28
+        },
+        {
+          "facilityId": "fac_005",
+          "name": "Bellandur Relief Staging Post",
+          "reachableBefore": true,
+          "reachableAfter": true,
+          "minutesBefore": 12,
+          "minutesAfter": 11
+        },
+        {
+          "facilityId": "fac_006",
+          "name": "Marathahalli Sports Complex Relief Camp",
+          "reachableBefore": false,
+          "reachableAfter": false,
+          "minutesBefore": null,
+          "minutesAfter": null
+        }
+      ],
+      "floodedEdgeIds": [
+        "edge_orr_ecospace_n",
+        "edge_orr_ecospace_s",
+        "edge_sarjapur_rd_culvert",
+        "edge_marathahalli_merge_w",
+        "edge_panathur_subway"
+      ]
+    }
+  }
+}

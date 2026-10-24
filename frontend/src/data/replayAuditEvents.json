@@ -1,0 +1,64 @@
+[
+  {
+    "ts": "2026-10-24T10:15:00.000Z",
+    "runId": "run_replay_001",
+    "actor": "sentinel",
+    "event": "weather_alert_ingested",
+    "payload": {
+      "scenarioId": "blr-2022-09-replay",
+      "totalMm": 125,
+      "peakHourlyMm": 35,
+      "source": "KSNDMC historical rain gauge records"
+    }
+  },
+  {
+    "ts": "2026-10-24T10:15:02.150Z",
+    "runId": "run_replay_001",
+    "actor": "risk",
+    "event": "hotspots_scored",
+    "payload": {
+      "count": 4,
+      "highestRisk": {
+        "hotspotId": "hs_001",
+        "name": "Outer Ring Road EcoSpace Underpass",
+        "score": 0.92
+      }
+    }
+  },
+  {
+    "ts": "2026-10-24T10:15:05.400Z",
+    "runId": "run_replay_001",
+    "actor": "planner",
+    "event": "plan_proposed",
+    "payload": {
+      "planId": "plan_001",
+      "iteration": 1,
+      "actionCount": 4,
+      "actionTypes": ["road_closure", "pump_prepositioning", "diversion", "ambulance_staging"]
+    }
+  },
+  {
+    "ts": "2026-10-24T10:15:08.820Z",
+    "runId": "run_replay_001",
+    "actor": "verifier",
+    "event": "simulation_completed",
+    "payload": {
+      "planId": "plan_001",
+      "baselineScore": 0.50,
+      "planScore": 0.833,
+      "threshold": 0.80,
+      "passed": true,
+      "improvement": "+33.3%"
+    }
+  },
+  {
+    "ts": "2026-10-24T10:15:09.100Z",
+    "runId": "run_replay_001",
+    "actor": "verifier",
+    "event": "operator_approval_requested",
+    "payload": {
+      "planId": "plan_001",
+      "reason": "Plan satisfies safety threshold (0.833 >= 0.800). Operator sign-off required prior to sandbox dispatch."
+    }
+  }
+]

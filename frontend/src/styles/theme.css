@@ -1,0 +1,307 @@
+/* ===================================================================
+   FLOODSHIELD OPS - COMMAND CENTER THEME
+   Tailored for City Control Room Pre-Flood Decision Support
+   =================================================================== */
+
+:root {
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-tertiary: #172033;
+  --bg-card: rgba(17, 24, 39, 0.88);
+  --bg-card-hover: rgba(23, 32, 51, 0.95);
+  --bg-card-border: rgba(255, 255, 255, 0.08);
+  --bg-card-border-focus: rgba(56, 189, 248, 0.4);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverted: #0b0f19;
+
+  /* Semantic Alert & Operation Colors */
+  --color-danger: #ef4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(239, 68, 68, 0.35);
+
+  --color-warning: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.35);
+
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-success-border: rgba(16, 185, 129, 0.35);
+
+  --color-info: #06b6d4;
+  --color-info-bg: rgba(6, 182, 212, 0.12);
+  --color-info-border: rgba(6, 182, 212, 0.35);
+
+  --color-ai: #8b5cf6;
+  --color-ai-bg: rgba(139, 92, 246, 0.12);
+  --color-ai-border: rgba(139, 92, 246, 0.35);
+
+  --color-neutral: #64748b;
+  --color-neutral-bg: rgba(100, 116, 139, 0.12);
+  --color-neutral-border: rgba(100, 116, 139, 0.3);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbars for control room feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Typography Helpers */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* App Container */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+}
+
+/* Main Dashboard Grid */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  max-width: 1720px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-layout {
+    grid-template-columns: 320px 1fr 360px;
+    align-items: start;
+  }
+}
+
+@media (min-width: 1400px) {
+  .dashboard-layout {
+    grid-template-columns: 340px 1fr 400px;
+  }
+}
+
+/* Base Card */
+.ops-card {
+  background: var(--bg-card);
+  border: 1px solid var(--bg-card-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.ops-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.ops-card-header {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--bg-card-border);
+  background: rgba(11, 15, 25, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ops-card-title {
+  font-size: 0.825rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ops-card-body {
+  padding: 1rem;
+  flex: 1;
+}
+
+/* Buttons */
+.ops-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.ops-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ops-btn-primary {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+.ops-btn-primary:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.ops-btn-success {
+  background: #059669;
+  color: #ffffff;
+  border-color: #34d399;
+}
+.ops-btn-success:hover:not(:disabled) {
+  background: #047857;
+}
+
+.ops-btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #f87171;
+}
+.ops-btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.ops-btn-outline {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border-color: var(--bg-card-border);
+}
+.ops-btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Badges */
+.ops-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  line-height: 1;
+}
+
+.ops-badge-danger {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: #fca5a5;
+}
+
+.ops-badge-warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: #fcd34d;
+}
+
+.ops-badge-success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: #6ee7b7;
+}
+
+.ops-badge-info {
+  background: var(--color-info-bg);
+  border-color: var(--color-info-border);
+  color: #67e8f9;
+}
+
+.ops-badge-ai {
+  background: var(--color-ai-bg);
+  border-color: var(--color-ai-border);
+  color: #c4b5fd;
+}
+
+.ops-badge-neutral {
+  background: var(--color-neutral-bg);
+  border-color: var(--color-neutral-border);
+  color: #cbd5e1;
+}
+
+/* Leaflet Map Styling Override for Command Center */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #090d16 !important;
+  font-family: var(--font-sans) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #111827 !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-tip {
+  background: #111827 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
