@@ -90,6 +90,26 @@ def test_road_closure_changes_planned_graph_but_not_flood_observations() -> None
     assert body["planScore"] < body["baselineScore"]
 
 
+def test_supported_actions_never_claim_reachability_improvement() -> None:
+    for action_type in (
+        "road_closure",
+        "diversion",
+        "pump_prepositioning",
+        "ambulance_staging",
+    ):
+        response = client.post(
+            "/simulate",
+            json={
+                "scenarioId": "blr-2022-09-replay",
+                "actions": [action(f"act_{action_type}", action_type)],
+            },
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["planScore"] <= body["baselineScore"]
+
+
 def test_invalid_and_unsupported_actions_return_contract_errors() -> None:
     unsupported = client.post(
         "/simulate",
