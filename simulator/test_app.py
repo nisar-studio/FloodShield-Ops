@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
+import pytest
 
-from app import app
+from app import SimulationRequest, app
 
 
 client = TestClient(app)
@@ -126,6 +128,29 @@ def test_scenario_and_read_routes_use_the_approved_id() -> None:
     assert missing.json()["error"]["code"] == "SCENARIO_NOT_FOUND"
 
 
+def test_replay_facilities_and_hotspots_match_the_backend_contract() -> None:
+    facilities = client.get("/facilities?scenarioId=blr-2022-09-replay").json()
+    hotspots = client.get("/hotspots?scenarioId=blr-2022-09-replay").json()
+
+    assert [(facility["id"], facility["nodeId"]) for facility in facilities] == [
+        ("fac_001", "node_004"),
+        ("fac_002", "node_006"),
+        ("fac_003", "node_003"),
+        ("fac_004", "node_005"),
+        ("fac_005", "node_002"),
+        ("fac_006", "node_004"),
+    ]
+    assert [
+        (hotspot["id"], hotspot["floodedEdgeIds"])
+        for hotspot in hotspots
+    ] == [
+        ("hs_001", ["edge_002", "edge_003"]),
+        ("hs_002", ["edge_004"]),
+        ("hs_003", ["edge_006", "edge_008"]),
+        ("hs_004", ["edge_005"]),
+    ]
+
+
 def test_replay_flood_observations_cannot_be_overridden_by_public_request() -> None:
     response = client.post(
         "/simulate",
@@ -150,3 +175,35 @@ def test_unknown_routes_use_the_standard_error_envelope() -> None:
             "message": "Not Found",
         }
     }
+
+
+def test_action_strings_must_not_be_blank_and_numbers_must_not_be_coerced() -> None:
+    blank = client.post(
+        "/simulate",
+        json={
+            "scenarioId": "blr-2022-09-replay",
+            "actions": [
+                {
+                    **action("act_blank"),
+                    "target": {"edgeIds": ["edge_004"], "label": " "},
+                }
+            ],
+        },
+    )
+    coerced = client.post(
+        "/simulate",
+        json={
+            "scenarioId": "blr-2022-09-replay",
+            "actions": [{**action("act_coerced"), "confidence": "0.8"}],
+        },
+    )
+    with pytest.raises(ValidationError):
+        SimulationRequest.model_validate({
+            "scenarioId": "blr-2022-09-replay",
+            "threshold": float("nan"),
+        })
+
+    assert blank.status_code == 400
+    assert blank.json()["error"]["code"] == "INVALID_REQUEST"
+    assert coerced.status_code == 400
+    assert coerced.json()["error"]["code"] == "INVALID_REQUEST"

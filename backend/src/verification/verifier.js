@@ -4,6 +4,12 @@ const {
   validateSimulationResult,
 } = require('../contracts/validation');
 
+const SCORE_TOLERANCE = 1e-9;
+
+function scoresMatch(actual, expected) {
+  return Math.abs(actual - expected) <= SCORE_TOLERANCE;
+}
+
 function createVerifier({ enabled = false } = {}) {
   return {
     verify({ plan, simulation, scenarioBundle } = {}) {
@@ -35,9 +41,7 @@ function createVerifier({ enabled = false } = {}) {
         }
 
         if (simulationValidation.valid && scenarioValidation.valid) {
-          const expectedFacilityIds = new Set(
-            scenarioBundle.facilities.map((facility) => facility.id),
-          );
+          const expectedFacilityIds = new Set(scenarioBundle.facilities.map((facility) => facility.id));
           const actualFacilityIds = new Set(
             simulation.perFacility.map((facility) => facility.facilityId),
           );
@@ -50,6 +54,30 @@ function createVerifier({ enabled = false } = {}) {
           for (const facilityId of expectedFacilityIds) {
             if (!actualFacilityIds.has(facilityId)) {
               errors.push(`simulation.perFacility is missing facilityId: ${facilityId}`);
+            }
+          }
+
+          if (
+            simulation.perFacility.length === expectedFacilityIds.size
+            && actualFacilityIds.size === expectedFacilityIds.size
+            && [...expectedFacilityIds].every((facilityId) => actualFacilityIds.has(facilityId))
+          ) {
+            const expectedBaselineScore = simulation.perFacility.filter(
+              (facility) => facility.reachableBefore,
+            ).length / expectedFacilityIds.size;
+            const expectedPlanScore = simulation.perFacility.filter(
+              (facility) => facility.reachableAfter,
+            ).length / expectedFacilityIds.size;
+
+            if (!scoresMatch(simulation.baselineScore, expectedBaselineScore)) {
+              errors.push(
+                `simulation.baselineScore must match perFacility reachability (${expectedBaselineScore})`,
+              );
+            }
+            if (!scoresMatch(simulation.planScore, expectedPlanScore)) {
+              errors.push(
+                `simulation.planScore must match perFacility reachability (${expectedPlanScore})`,
+              );
             }
           }
         }

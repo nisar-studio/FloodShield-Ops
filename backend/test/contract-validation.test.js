@@ -67,6 +67,10 @@ describe('contract validators', () => {
     assert.ok(result.errors.includes('actions[0].type is unsupported'));
     assert.ok(result.errors.includes('actions[0].confidence must be between 0 and 1'));
     assert.ok(result.errors.includes('actions[0].extra is not allowed'));
+
+    const emptyEvidenceResult = validateAction({ ...validAction, evidence: [] });
+    assert.equal(emptyEvidenceResult.valid, false);
+    assert.ok(emptyEvidenceResult.errors.includes('actions[0].evidence must contain at least 1 string'));
   });
 
   it('accepts a valid Plan and enforces the iteration limit and action validation', () => {
@@ -83,6 +87,10 @@ describe('contract validators', () => {
     assert.ok(result.errors.includes('plan.iteration must be an integer from 1 to 3'));
     assert.ok(result.errors.includes('actions[0].target.edgeIds must contain at least one string'));
     assert.ok(result.errors.includes('actions[0].target.label must be a non-empty string'));
+
+    const emptyPlanResult = validatePlan({ ...validPlan, actions: [] });
+    assert.equal(emptyPlanResult.valid, false);
+    assert.ok(emptyPlanResult.errors.includes('plan.actions must contain at least one action'));
   });
 
   it('accepts a valid SimulationResult and rejects inconsistent or malformed values', () => {
@@ -228,9 +236,14 @@ describe('verification service', () => {
   it('accepts only a valid proposed plan and complete matching simulation result', () => {
     const simulation = {
       ...validSimulation,
+      baselineScore: 5 / 6,
+      planScore: 1,
       perFacility: replayScenarioBundle.facilities.map((facility) => ({
-        ...validSimulation.perFacility[0],
         facilityId: facility.id,
+        reachableBefore: facility.id !== 'fac_003',
+        reachableAfter: true,
+        minutesBefore: facility.id === 'fac_003' ? null : 15,
+        minutesAfter: 15,
       })),
     };
     const result = createVerifier({ enabled: true }).verify({
@@ -240,5 +253,29 @@ describe('verification service', () => {
     });
 
     assert.deepEqual(result, { verified: true, code: 'verified', errors: [] });
+  });
+
+  it('rejects simulator scores that contradict per-facility reachability', () => {
+    const simulation = {
+      ...validSimulation,
+      baselineScore: 1,
+      planScore: 1,
+      perFacility: replayScenarioBundle.facilities.map((facility) => ({
+        facilityId: facility.id,
+        reachableBefore: false,
+        reachableAfter: false,
+        minutesBefore: null,
+        minutesAfter: null,
+      })),
+    };
+    const result = createVerifier({ enabled: true }).verify({
+      plan: validPlan,
+      simulation,
+      scenarioBundle: replayScenarioBundle,
+    });
+
+    assert.equal(result.verified, false);
+    assert.ok(result.errors.some((error) => error.startsWith('simulation.baselineScore must match')));
+    assert.ok(result.errors.some((error) => error.startsWith('simulation.planScore must match')));
   });
 });

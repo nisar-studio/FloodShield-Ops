@@ -1,6 +1,6 @@
 const cors = require('cors');
 const express = require('express');
-const { randomUUID } = require('node:crypto');
+const { createHash, randomUUID, timingSafeEqual } = require('node:crypto');
 
 const { replayScenarioBundle } = require('./data/replayScenario');
 const {
@@ -14,7 +14,7 @@ const { createVerifier } = require('./verification/verifier');
 
 const SCENARIO_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const APPROVAL_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
-const CONTROL_ROOM_OPERATOR = process.env.CONTROL_ROOM_OPERATOR || 'Control Room Operator';
+const DEFAULT_CONTROL_ROOM_OPERATOR = 'Control Room Operator';
 
 function createCandidatePlan(scenarioId) {
   return {
@@ -42,6 +42,42 @@ function appendAudit(runStore, runId, actor, event, payload) {
   });
 }
 
+function tokensMatch(providedToken, expectedToken) {
+  if (typeof providedToken !== 'string' || typeof expectedToken !== 'string') return false;
+
+  const providedDigest = createHash('sha256').update(providedToken).digest();
+  const expectedDigest = createHash('sha256').update(expectedToken).digest();
+  return timingSafeEqual(providedDigest, expectedDigest);
+}
+
+function authenticateOperator(req, operatorAuthToken, operatorIdentity) {
+  if (typeof operatorAuthToken !== 'string' || operatorAuthToken.length === 0) {
+    return {
+      valid: false,
+      statusCode: 503,
+      error: 'operator_auth_unconfigured',
+      message: 'Operator authentication is not configured on the server.',
+    };
+  }
+
+  const authorization = req.get('authorization');
+  const match = typeof authorization === 'string'
+    ? /^Bearer\s+([^\s]+)$/.exec(authorization.trim())
+    : null;
+  const providedToken = match?.[1];
+
+  if (!tokensMatch(providedToken, operatorAuthToken)) {
+    return {
+      valid: false,
+      statusCode: 401,
+      error: 'operator_auth_invalid',
+      message: 'A valid operator bearer token is required.',
+    };
+  }
+
+  return { valid: true, identity: operatorIdentity };
+}
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -56,8 +92,11 @@ function validateApprovalRequest(body) {
   if (unexpectedKey) {
     return { valid: false, message: `Approval field '${unexpectedKey}' is not allowed.` };
   }
-  if (typeof body.approvedBy !== 'string' || body.approvedBy.trim().length === 0) {
-    return { valid: false, message: 'approvedBy must be a non-empty string.' };
+  if (
+    body.approvedBy !== undefined
+    && (typeof body.approvedBy !== 'string' || body.approvedBy.trim().length === 0)
+  ) {
+    return { valid: false, message: 'approvedBy must be a non-empty string when provided.' };
   }
   if (typeof body.approvedAt !== 'string' || !APPROVAL_TIMESTAMP_PATTERN.test(body.approvedAt)) {
     return { valid: false, message: 'approvedAt must be an ISO 8601 UTC timestamp.' };
@@ -82,8 +121,11 @@ function validateSandboxExecutionRequest(body) {
   if (unexpectedKey) {
     return { valid: false, message: `Sandbox field '${unexpectedKey}' is not allowed.` };
   }
-  if (body.executedBy !== CONTROL_ROOM_OPERATOR) {
-    return { valid: false, unauthorized: true, message: 'Sandbox execution is not authorized for this operator.' };
+  if (
+    body.executedBy !== undefined
+    && (typeof body.executedBy !== 'string' || body.executedBy.trim().length === 0)
+  ) {
+    return { valid: false, message: 'executedBy must be a non-empty string when provided.' };
   }
   if (typeof body.executedAt !== 'string' || !APPROVAL_TIMESTAMP_PATTERN.test(body.executedAt)) {
     return { valid: false, message: 'executedAt must be an ISO 8601 UTC timestamp.' };
@@ -102,8 +144,9 @@ async function executeInitialPlan({
   runStore,
   simulatorClient,
   verifier,
+  planFactory = createCandidatePlan,
 }) {
-  const plan = createCandidatePlan(scenarioId);
+  const plan = planFactory(scenarioId);
   runStore.updateRun(runId, (run) => ({
     ...run,
     status: 'running',
@@ -113,8 +156,61 @@ async function executeInitialPlan({
   appendAudit(runStore, runId, 'planner', 'plan_proposed', {
     planId: plan.planId,
     iteration: plan.iteration,
-    actionCount: plan.actions.length,
+    actionCount: Array.isArray(plan.actions) ? plan.actions.length : 0,
   });
+
+  if (!Array.isArray(plan.actions) || plan.actions.length === 0) {
+    runStore.updateRun(runId, (run) => {
+      let steps = updateStep(
+        run.steps,
+        'ASSESS',
+        'disabled',
+        'Risk assessment is not implemented for this milestone.',
+      );
+      steps = updateStep(
+        steps,
+        'PLAN',
+        'disabled',
+        'No mitigation actions were proposed; approval is blocked.',
+      );
+      steps = updateStep(
+        steps,
+        'VERIFY',
+        'disabled',
+        'Verification was skipped because the candidate plan has no actions.',
+      );
+      steps = updateStep(
+        steps,
+        'REPLAN',
+        'in_progress',
+        'A non-empty mitigation plan is required before verification.',
+      );
+      steps = updateStep(
+        steps,
+        'APPROVE',
+        'disabled',
+        'Approval is blocked for an empty mitigation plan.',
+      );
+      steps = updateStep(
+        steps,
+        'SANDBOX',
+        'disabled',
+        'Sandbox execution is locked until a non-empty plan is verified and approved.',
+      );
+      return {
+        ...run,
+        status: 'replan_required',
+        plan: { ...plan, status: 'rejected' },
+        simulation: null,
+        steps,
+      };
+    });
+    appendAudit(runStore, runId, 'planner', 'plan_rejected_no_actions', {
+      planId: plan.planId,
+      reason: 'A mitigation plan must contain at least one action.',
+    });
+    return;
+  }
 
   let simulation;
   try {
@@ -221,6 +317,9 @@ function createApp({
     ? createSimulatorClient()
     : null,
   verifier = createVerifier({ enabled: true }),
+  operatorAuthToken = process.env.OPERATOR_AUTH_TOKEN,
+  operatorIdentity = process.env.CONTROL_ROOM_OPERATOR || DEFAULT_CONTROL_ROOM_OPERATOR,
+  planFactory = createCandidatePlan,
 } = {}) {
   const app = express();
 
@@ -311,6 +410,7 @@ function createApp({
         runStore,
         simulatorClient,
         verifier,
+        planFactory,
       });
     }
     return res.status(201).json({ runId: run.runId });
@@ -329,6 +429,14 @@ function createApp({
   });
 
   app.post('/api/plan/:planId/approve', (req, res) => {
+    const authentication = authenticateOperator(req, operatorAuthToken, operatorIdentity);
+    if (!authentication.valid) {
+      return res.status(authentication.statusCode).json({
+        error: authentication.error,
+        message: authentication.message,
+      });
+    }
+
     const body = req.body;
     const approvalValidation = validateApprovalRequest(body);
     if (!approvalValidation.valid) {
@@ -337,18 +445,17 @@ function createApp({
         message: approvalValidation.message,
       });
     }
-    if (body.approvedBy !== CONTROL_ROOM_OPERATOR) {
-      return res.status(403).json({
-        error: 'approval_not_authorized',
-        message: 'Approval is restricted to the configured control-room operator.',
-      });
-    }
-
     const run = runStore.findRunByPlanId(req.params.planId);
     if (!run) {
       return res.status(404).json({
         error: 'plan_not_found',
         message: `No plan exists for planId "${req.params.planId}".`,
+      });
+    }
+    if (!Array.isArray(run.plan.actions) || run.plan.actions.length === 0) {
+      return res.status(409).json({
+        error: 'empty_plan_not_approvable',
+        message: 'A mitigation plan must contain at least one action before approval.',
       });
     }
     if (run.plan.status !== 'verified') {
@@ -372,7 +479,7 @@ function createApp({
     appendAudit(runStore, run.runId, 'operator', 'plan_approved', {
       planId: req.params.planId,
       note: typeof body.note === 'string' ? body.note : '',
-      approvedBy: body.approvedBy,
+      approvedBy: authentication.identity,
       approvedAt: body.approvedAt,
     });
     runStore.updateRun(run.runId, (current) => ({
@@ -388,13 +495,19 @@ function createApp({
   });
 
   app.post('/api/plan/:planId/execute-sandbox', (req, res) => {
+    const authentication = authenticateOperator(req, operatorAuthToken, operatorIdentity);
+    if (!authentication.valid) {
+      return res.status(authentication.statusCode).json({
+        error: authentication.error,
+        message: authentication.message,
+      });
+    }
+
     const body = req.body;
     const executionValidation = validateSandboxExecutionRequest(body);
     if (!executionValidation.valid) {
-      return res.status(executionValidation.unauthorized ? 403 : 400).json({
-        error: executionValidation.unauthorized
-          ? 'sandbox_not_authorized'
-          : 'invalid_sandbox_request',
+      return res.status(400).json({
+        error: 'invalid_sandbox_request',
         message: executionValidation.message,
       });
     }
@@ -404,6 +517,12 @@ function createApp({
       return res.status(404).json({
         error: 'plan_not_found',
         message: `No plan exists for planId "${req.params.planId}".`,
+      });
+    }
+    if (!Array.isArray(run.plan.actions) || run.plan.actions.length === 0) {
+      return res.status(409).json({
+        error: 'empty_plan_not_executable',
+        message: 'A mitigation plan must contain at least one action before sandbox execution.',
       });
     }
     if (run.plan.status !== 'approved') {
@@ -431,7 +550,7 @@ function createApp({
     }));
     appendAudit(runStore, run.runId, 'operator', 'sandbox_execution_started', {
       planId: req.params.planId,
-      executedBy: body.executedBy,
+      executedBy: authentication.identity,
       executedAt: body.executedAt,
       simulatedOnly: true,
     });
@@ -446,7 +565,7 @@ function createApp({
     }));
     appendAudit(runStore, run.runId, 'operator', 'sandbox_execution_completed', {
       planId: req.params.planId,
-      executedBy: body.executedBy,
+      executedBy: authentication.identity,
       executedAt: body.executedAt,
       simulatedOnly: true,
     });

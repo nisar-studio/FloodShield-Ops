@@ -69,6 +69,29 @@ describe('replay scenario API', () => {
     assert.equal(replayScenarioBundle.hotspots.every((hotspot) => hotspot.riskScore >= 0 && hotspot.riskScore <= 1), true);
   });
 
+  it('keeps the replay facility and hotspot contract stable across services', () => {
+    assert.deepEqual(
+      replayScenarioBundle.facilities.map((facility) => [facility.id, facility.nodeId]),
+      [
+        ['fac_001', 'node_004'],
+        ['fac_002', 'node_006'],
+        ['fac_003', 'node_003'],
+        ['fac_004', 'node_005'],
+        ['fac_005', 'node_002'],
+        ['fac_006', 'node_004'],
+      ],
+    );
+    assert.deepEqual(
+      replayScenarioBundle.hotspots.map((hotspot) => [hotspot.id, hotspot.floodedEdgeIds]),
+      [
+        ['hs_001', ['edge_002', 'edge_003']],
+        ['hs_002', ['edge_004']],
+        ['hs_003', ['edge_006', 'edge_008']],
+        ['hs_004', ['edge_005']],
+      ],
+    );
+  });
+
   it('rejects invalid coordinates, risk scores, and required fields', () => {
     const invalidBundle = JSON.parse(JSON.stringify(replayScenarioBundle));
     invalidBundle.scenario.bbox.south = 91;

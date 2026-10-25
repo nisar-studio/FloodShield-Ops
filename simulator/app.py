@@ -6,6 +6,7 @@ prediction system and must not be used for real emergency-response decisions.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
 from fastapi import FastAPI, Query, Request
@@ -70,35 +71,75 @@ app = FastAPI(
 )
 
 
+# These labels mirror the backend replay fixture. They remain synthetic demo
+# data and are not independently verified real-world flood observations.
 HOTSPOTS = (
     {
         "id": "hs_001",
-        "name": "Synthetic node_003 flood-risk segment",
-        "lat": 12.9497,
-        "lng": 77.7011,
+        "name": "Outer Ring Road EcoSpace Underpass",
+        "lat": 12.926,
+        "lng": 77.683,
         "riskScore": 0.92,
-        "reasons": ["Default replay flooding isolates node_003"],
+        "reasons": [
+            "Low elevation underpass sump",
+            "Bellandur lake overflow channel surge",
+            "Peak replay rainfall exceeds 35mm/h",
+        ],
         "floodedEdgeIds": ["edge_002", "edge_003"],
     },
     {
         "id": "hs_002",
-        "name": "Synthetic node_005 access segment",
-        "lat": 12.9868,
-        "lng": 77.6972,
-        "riskScore": 0.78,
-        "reasons": ["Low-lying synthetic access route"],
+        "name": "Rainbow Drive / Sarjapur Road Junction",
+        "lat": 12.911,
+        "lng": 77.6795,
+        "riskScore": 0.85,
+        "reasons": [
+            "Natural watershed depression bowl",
+            "Culvert cross-section capacity deficit",
+            "Replay fixture inundation threshold",
+        ],
         "floodedEdgeIds": ["edge_004"],
     },
     {
         "id": "hs_003",
-        "name": "Synthetic node_006 connector",
-        "lat": 12.9572,
-        "lng": 77.7391,
-        "riskScore": 0.74,
-        "reasons": ["Synthetic alternate-route dependency"],
+        "name": "Marathahalli Bridge ORR Merge",
+        "lat": 12.9525,
+        "lng": 77.7015,
+        "riskScore": 0.78,
+        "reasons": [
+            "Major storm drain backflow",
+            "Western flyover ramp runoff ponding",
+        ],
         "floodedEdgeIds": ["edge_006", "edge_008"],
     },
+    {
+        "id": "hs_004",
+        "name": "Panathur Railway Subway & Varthur Link",
+        "lat": 12.9412,
+        "lng": 77.712,
+        "riskScore": 0.74,
+        "reasons": [
+            "Railway underpass low point",
+            "Varthur lake secondary drain bottleneck",
+        ],
+        "floodedEdgeIds": ["edge_005"],
+    },
 )
+
+
+def _require_non_blank(value: str, field_name: str) -> str:
+    if not value.strip():
+        raise ValueError(f"{field_name} must not be blank")
+    return value
+
+
+def _require_finite_number(value: Any, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field_name} must be a number")
+    numeric_value = float(value)
+    if not math.isfinite(numeric_value):
+        raise ValueError(f"{field_name} must be finite")
+    return numeric_value
 
 
 class ActionTarget(BaseModel):
@@ -112,7 +153,14 @@ class ActionTarget(BaseModel):
     def validate_edge_ids(cls, values: list[str]) -> list[str]:
         if len(values) != len(set(values)):
             raise ValueError("target.edgeIds must not contain duplicates")
+        if any(not edge_id.strip() for edge_id in values):
+            raise ValueError("target.edgeIds must not contain blank values")
         return values
+
+    @field_validator("label")
+    @classmethod
+    def validate_label(cls, value: str) -> str:
+        return _require_non_blank(value, "target.label")
 
 
 class SimulationAction(BaseModel):
@@ -124,6 +172,23 @@ class SimulationAction(BaseModel):
     rationale: StrictStr = Field(min_length=1, max_length=1000)
     evidence: list[StrictStr] = Field(min_length=1, max_length=50)
     confidence: float = Field(ge=0.0, le=1.0)
+
+    @field_validator("actionId", "type", "rationale")
+    @classmethod
+    def validate_non_blank_strings(cls, value: str, info: Any) -> str:
+        return _require_non_blank(value, info.field_name)
+
+    @field_validator("evidence")
+    @classmethod
+    def validate_evidence(cls, values: list[str]) -> list[str]:
+        if any(not evidence.strip() for evidence in values):
+            raise ValueError("evidence must not contain blank values")
+        return values
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def validate_confidence_type(cls, value: Any) -> Any:
+        return _require_finite_number(value, "confidence")
 
 
 class SimulationRequest(BaseModel):
@@ -141,6 +206,18 @@ class SimulationRequest(BaseModel):
     actions: list[SimulationAction] = Field(default_factory=list, max_length=100)
     planId: StrictStr = Field(default="plan_simulation", min_length=1, max_length=128)
     threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+
+    @field_validator("scenarioId", "planId")
+    @classmethod
+    def validate_request_strings(cls, value: str, info: Any) -> str:
+        return _require_non_blank(value, info.field_name)
+
+    @field_validator("threshold", mode="before")
+    @classmethod
+    def validate_threshold_type(cls, value: Any) -> Any:
+        if value is None:
+            return value
+        return _require_finite_number(value, "threshold")
 
 
 class FacilityResponse(BaseModel):

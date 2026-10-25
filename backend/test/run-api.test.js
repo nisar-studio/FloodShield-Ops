@@ -5,6 +5,34 @@ const { createApp } = require('../src/app');
 
 let server;
 let baseUrl;
+const TEST_OPERATOR_TOKEN = 'test-operator-token';
+const TEST_OPERATOR_IDENTITY = 'Control Room Operator';
+
+const testAction = {
+  actionId: 'act_test_001',
+  type: 'road_closure',
+  target: { edgeIds: ['edge_004'], label: 'Synthetic test closure' },
+  rationale: 'Protect synthetic facility access.',
+  evidence: ['hotspot hs_001'],
+  confidence: 0.8,
+};
+
+function testPlanFactory(scenarioId) {
+  return {
+    planId: 'plan_test_001',
+    scenarioId,
+    iteration: 1,
+    actions: [testAction],
+    status: 'proposed',
+  };
+}
+
+function operatorHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${TEST_OPERATOR_TOKEN}`,
+  };
+}
 
 function listen(app) {
   return new Promise((resolve) => {
@@ -49,7 +77,12 @@ function simulationFor(input, overrides = {}) {
 }
 
 async function startIntegrationRun(simulatorClient) {
-  const integrationServer = await listen(createApp({ simulatorClient }));
+  const integrationServer = await listen(createApp({
+    simulatorClient,
+    operatorAuthToken: TEST_OPERATOR_TOKEN,
+    operatorIdentity: TEST_OPERATOR_IDENTITY,
+    planFactory: testPlanFactory,
+  }));
   const integrationBaseUrl = `http://127.0.0.1:${integrationServer.address().port}`;
   const createResponse = await fetch(`${integrationBaseUrl}/api/run`, {
     method: 'POST',
@@ -106,6 +139,51 @@ describe('run lifecycle API', () => {
     assert.equal(body.steps.find((step) => step.name === 'SANDBOX').status, 'disabled');
   });
 
+  it('blocks the default empty candidate plan before simulator verification', async () => {
+    let simulatorCalled = false;
+    const integrationServer = await listen(createApp({
+      operatorAuthToken: TEST_OPERATOR_TOKEN,
+      simulatorClient: {
+        async simulate() {
+          simulatorCalled = true;
+          throw new Error('The simulator should not receive an empty candidate plan.');
+        },
+      },
+    }));
+    const integrationBaseUrl = `http://127.0.0.1:${integrationServer.address().port}`;
+
+    try {
+      const createResponse = await fetch(`${integrationBaseUrl}/api/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenarioId: 'blr-2022-09-replay' }),
+      });
+      const { runId } = await createResponse.json();
+      const run = await (await fetch(`${integrationBaseUrl}/api/run/${runId}`)).json();
+
+      assert.equal(createResponse.status, 201);
+      assert.equal(simulatorCalled, false);
+      assert.equal(run.status, 'replan_required');
+      assert.equal(run.plan.status, 'rejected');
+      assert.deepEqual(run.plan.actions, []);
+      assert.equal(run.simulation, null);
+      assert.equal(run.steps.find((step) => step.name === 'ASSESS').status, 'disabled');
+      assert.equal(run.steps.find((step) => step.name === 'PLAN').status, 'disabled');
+      assert.equal(run.steps.find((step) => step.name === 'VERIFY').status, 'disabled');
+      assert.equal(run.steps.find((step) => step.name === 'APPROVE').status, 'disabled');
+
+      const approval = await fetch(`${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`, {
+        method: 'POST',
+        headers: operatorHeaders(),
+        body: JSON.stringify({ approvedAt: new Date().toISOString() }),
+      });
+      assert.equal(approval.status, 409);
+      assert.equal((await approval.json()).error, 'empty_plan_not_approvable');
+    } finally {
+      await close(integrationServer);
+    }
+  });
+
   it('returns a JSON 404 for an unknown run id', async () => {
     const response = await request('/api/run/run_unknown');
     const body = await response.json();
@@ -158,7 +236,12 @@ describe('run lifecycle API', () => {
         return simulationFor(input);
       },
     };
-    const integrationServer = await listen(createApp({ simulatorClient }));
+    const integrationServer = await listen(createApp({
+      simulatorClient,
+      operatorAuthToken: TEST_OPERATOR_TOKEN,
+      operatorIdentity: TEST_OPERATOR_IDENTITY,
+      planFactory: testPlanFactory,
+    }));
     const integrationBaseUrl = `http://127.0.0.1:${integrationServer.address().port}`;
 
     try {
@@ -175,7 +258,7 @@ describe('run lifecycle API', () => {
       assert.equal(runResponse.status, 200);
       assert.equal(simulatorCalls.length, 1);
       assert.equal(simulatorCalls[0].scenarioId, 'blr-2022-09-replay');
-      assert.deepEqual(simulatorCalls[0].actions, []);
+      assert.deepEqual(simulatorCalls[0].actions, [testAction]);
       assert.equal(run.status, 'waiting_approval');
       assert.equal(run.plan.status, 'verified');
       assert.equal(run.simulation.passed, true);
@@ -194,8 +277,8 @@ describe('run lifecycle API', () => {
         `${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ approvedBy: 'Control Room Operator' }),
+           headers: operatorHeaders(),
+           body: JSON.stringify({ approvedBy: 'Control Room Operator' }),
         },
       );
       assert.equal(malformedApprovalResponse.status, 400);
@@ -205,21 +288,35 @@ describe('run lifecycle API', () => {
         `${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            approvedBy: 'Unrecognized Operator',
-            approvedAt: new Date().toISOString(),
-          }),
-        },
-      );
-      assert.equal(unauthorizedApprovalResponse.status, 403);
-      assert.equal((await unauthorizedApprovalResponse.json()).error, 'approval_not_authorized');
+           headers: {
+             ...operatorHeaders(),
+             Authorization: 'Bearer invalid-token',
+           },
+           body: JSON.stringify({
+             approvedBy: 'Control Room Operator',
+             approvedAt: new Date().toISOString(),
+           }),
+         },
+       );
+       assert.equal(unauthorizedApprovalResponse.status, 401);
+       assert.equal((await unauthorizedApprovalResponse.json()).error, 'operator_auth_invalid');
+
+       const missingAuthResponse = await fetch(
+         `${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`,
+         {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ approvedAt: new Date().toISOString() }),
+         },
+       );
+       assert.equal(missingAuthResponse.status, 401);
+       assert.equal((await missingAuthResponse.json()).error, 'operator_auth_invalid');
 
       const earlySandboxResponse = await fetch(
         `${integrationBaseUrl}/api/plan/${run.plan.planId}/execute-sandbox`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+           headers: operatorHeaders(),
           body: JSON.stringify({
             executedBy: 'Control Room Operator',
             executedAt: new Date().toISOString(),
@@ -233,9 +330,9 @@ describe('run lifecycle API', () => {
         `${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            approvedBy: 'Control Room Operator',
+           headers: operatorHeaders(),
+           body: JSON.stringify({
+             approvedBy: 'Spoofed Operator',
             approvedAt: new Date().toISOString(),
             note: 'Approved for the sandbox gate.',
           }),
@@ -249,9 +346,9 @@ describe('run lifecycle API', () => {
         `${integrationBaseUrl}/api/plan/${run.plan.planId}/execute-sandbox`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            executedBy: 'Control Room Operator',
+           headers: operatorHeaders(),
+           body: JSON.stringify({
+             executedBy: 'Spoofed Operator',
             executedAt: new Date().toISOString(),
           }),
         },
@@ -271,6 +368,8 @@ describe('run lifecycle API', () => {
         'sandbox_execution_started',
         'sandbox_execution_completed',
       ]);
+      assert.equal(finalAudit[2].payload.approvedBy, TEST_OPERATOR_IDENTITY);
+      assert.equal(finalAudit[3].payload.executedBy, TEST_OPERATOR_IDENTITY);
     } finally {
       await close(integrationServer);
     }
@@ -295,7 +394,7 @@ describe('run lifecycle API', () => {
 
       const approval = await fetch(`${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: operatorHeaders(),
         body: JSON.stringify({
           approvedBy: 'Control Room Operator',
           approvedAt: new Date().toISOString(),
@@ -328,7 +427,17 @@ describe('run lifecycle API', () => {
   it('blocks approval when simulation fails its threshold', async () => {
     const simulatorClient = {
       async simulate(input) {
-        return simulationFor(input, { planScore: 0.5, passed: false });
+        const simulation = simulationFor(input);
+        return {
+          ...simulation,
+          planScore: 0.5,
+          passed: false,
+          perFacility: simulation.perFacility.map((facility, index) => ({
+            ...facility,
+            reachableAfter: index < 3,
+            minutesAfter: index < 3 ? 15 : null,
+          })),
+        };
       },
     };
     const { integrationServer, integrationBaseUrl, runId } = await startIntegrationRun(simulatorClient);
@@ -342,7 +451,7 @@ describe('run lifecycle API', () => {
 
       const approval = await fetch(`${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: operatorHeaders(),
         body: JSON.stringify({
           approvedBy: 'Control Room Operator',
           approvedAt: new Date().toISOString(),
@@ -372,7 +481,7 @@ describe('run lifecycle API', () => {
 
       const approval = await fetch(`${integrationBaseUrl}/api/plan/${run.plan.planId}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: operatorHeaders(),
         body: JSON.stringify({
           approvedBy: 'Control Room Operator',
           approvedAt: new Date().toISOString(),

@@ -37,9 +37,13 @@ function hasOnlyKeys(value, allowedKeys, prefix, errors) {
   }
 }
 
-function validateStringArray(value, prefix, errors) {
+function validateStringArray(value, prefix, errors, { minLength = 0 } = {}) {
   if (!Array.isArray(value) || value.some((item) => !isNonEmptyString(item))) {
     errors.push(`${prefix} must contain strings`);
+    return false;
+  }
+  if (value.length < minLength) {
+    errors.push(`${prefix} must contain at least ${minLength} string${minLength === 1 ? '' : 's'}`);
     return false;
   }
 
@@ -215,7 +219,7 @@ function validateAction(action, index = 0) {
   if (!isNonEmptyString(action.rationale)) {
     errors.push(`${prefix}.rationale must be a non-empty string`);
   }
-  validateStringArray(action.evidence, `${prefix}.evidence`, errors);
+  validateStringArray(action.evidence, `${prefix}.evidence`, errors, { minLength: 1 });
   if (!isFiniteNumber(action.confidence) || action.confidence < 0 || action.confidence > 1) {
     errors.push(`${prefix}.confidence must be between 0 and 1`);
   }
@@ -248,6 +252,8 @@ function validatePlan(plan) {
   }
   if (!Array.isArray(plan.actions)) {
     errors.push('plan.actions must be an array');
+  } else if (plan.actions.length === 0) {
+    errors.push('plan.actions must contain at least one action');
   } else {
     plan.actions.forEach((action, index) => {
       errors.push(...validateAction(action, index).errors);
