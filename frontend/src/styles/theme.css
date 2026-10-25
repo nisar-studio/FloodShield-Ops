@@ -197,6 +197,29 @@ h1, h2, h3, h4, .font-heading {
   animation: slideInInspector var(--transition-panel);
 }
 
+.intel-feed-body {
+  min-height: 0;
+}
+
+.intel-feed-review-button {
+  min-height: 36px;
+}
+
+@media (max-width: 900px) {
+  .contextual-inspector {
+    width: min(400px, 42vw);
+  }
+}
+
+@media (max-width: 680px) {
+  .contextual-inspector {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(400px, 100%);
+    max-width: 100%;
+  }
+}
+
 .contextual-inspector.collapsed {
   width: 0;
   border-left: none;

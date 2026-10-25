@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   X, 
   MapPin, 
@@ -18,10 +18,27 @@ import {
   ArrowRight,
   Shield,
   Clock,
-  Sparkles
+  Sparkles,
+  Radio,
+  SlidersHorizontal,
+  Crosshair,
+  CheckCircle2,
+  BookmarkCheck,
+  ExternalLink,
 } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import intelFeedData from '../data/floodIntelligenceFeed.json';
+
+function isValidSourceUrl(sourceUrl) {
+  if (!sourceUrl) return false;
+  try {
+    const url = new URL(sourceUrl);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export function ContextualInspector({
   selectedItem = null,
@@ -31,13 +48,492 @@ export function ContextualInspector({
   simulation = null,
   hotspots = [],
   facilities = [],
+  onSelectItem = () => {},
 }) {
+  const [panelMode, setPanelMode] = useState('inspector'); // 'inspector' | 'feed'
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'evidence' | 'actions'
+  const [reviewedReports, setReviewedReports] = useState({});
+  const reviewedReportIdsRef = useRef(new Set());
+  const [pinnedNotification, setPinnedNotification] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   const perFacMap = (simulation?.perFacility || []).reduce((acc, pf) => {
     acc[pf.facilityId] = pf;
     return acc;
   }, {});
+
+  const feedReports = intelFeedData.reports || [];
+  const counts = {
+    total: feedReports.length,
+    verified: feedReports.filter((r) => r.verificationStatus === 'Verified').length,
+    citizen: feedReports.filter((r) => r.verificationStatus === 'Citizen Report').length,
+    investigating: feedReports.filter((r) => r.verificationStatus === 'Investigating').length,
+  };
+
+  const filteredReports = statusFilter === 'ALL'
+    ? feedReports
+    : feedReports.filter((r) => r.verificationStatus === statusFilter);
+
+  // Review as Potential Hotspot handler
+  const handleReviewReport = (report) => {
+    if (reviewedReportIdsRef.current.has(report.id)) {
+      return; // Prevent duplicate review
+    }
+    reviewedReportIdsRef.current.add(report.id);
+
+    // 1. Smoothly focus map on report coordinates
+    if (typeof report.lat === 'number' && typeof report.lng === 'number') {
+      onFocusMap(report.lat, report.lng, 15.5);
+    }
+
+    // 2. Correlate with existing hotspot if hotspotId exists
+    if (report.hotspotId) {
+      const matchingHotspot = hotspots.find((h) => h.id === report.hotspotId);
+      if (matchingHotspot) {
+        onSelectItem({ type: 'hotspot', data: matchingHotspot });
+        setPanelMode('inspector');
+        setReviewedReports((prev) => ({
+          ...prev,
+          [report.id]: {
+            status: 'CORRELATED',
+            hotspotId: report.hotspotId,
+            hotspotName: matchingHotspot.name,
+            timestamp: new Date().toLocaleTimeString(),
+          },
+        }));
+        setPinnedNotification({
+          type: 'success',
+          message: `Report ${report.id} linked to existing Hotspot ${report.hotspotId} (${matchingHotspot.name}). Camera centered on map.`,
+        });
+        return;
+      }
+    }
+
+    // 3. For reports without existing hotspots: Pin for operator hazard review
+    setReviewedReports((prev) => ({
+      ...prev,
+      [report.id]: {
+        status: 'PINNED',
+        landmark: report.landmark,
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    }));
+    setPinnedNotification({
+      type: 'pinned',
+      message: `Report ${report.id} [${report.landmark}] PINNED FOR REVIEW. Queued for Sentinel assessment.`,
+    });
+  };
+
+  // Reusable compact Inspector | Intel Feed switcher
+  const renderModeSwitch = () => (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        background: 'rgba(10, 13, 18, 0.75)',
+        borderRadius: '4px',
+        padding: '2px',
+        border: '1px solid var(--border-medium)',
+        gap: '2px',
+        marginRight: '6px',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setPanelMode('inspector')}
+        aria-pressed={panelMode === 'inspector'}
+        title="Switch to Tactical Asset Inspector"
+        style={{
+          background: panelMode === 'inspector' ? 'var(--color-teal)' : 'transparent',
+          color: panelMode === 'inspector' ? '#ffffff' : 'var(--text-muted)',
+          border: 'none',
+          borderRadius: '3px',
+          padding: '3px 8px',
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'all var(--transition-fast)',
+        }}
+      >
+        <SlidersHorizontal size={11} />
+        <span>Inspector</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setPanelMode('feed')}
+        aria-pressed={panelMode === 'feed'}
+        title="Switch to Mahadevapura Flood Intelligence Feed"
+        style={{
+          background: panelMode === 'feed' ? 'var(--color-teal)' : 'transparent',
+          color: panelMode === 'feed' ? '#ffffff' : 'var(--text-muted)',
+          border: 'none',
+          borderRadius: '3px',
+          padding: '3px 8px',
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'all var(--transition-fast)',
+        }}
+      >
+        <Radio size={11} />
+        <span>Intel Feed</span>
+      </button>
+    </div>
+  );
+
+  // =========================================================================
+  // MODE: FLOOD INTELLIGENCE FEED
+  // =========================================================================
+  if (panelMode === 'feed') {
+    return (
+      <aside className="contextual-inspector">
+        {/* Panel Header */}
+        <div className="ops-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="ops-card-title">
+            <Radio size={18} color="var(--color-water)" />
+            <h2 style={{ fontSize: 'inherit', fontWeight: 'inherit' }}>FLOOD INTELLIGENCE</h2>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {renderModeSwitch()}
+            {selectedItem && (
+              <button
+                type="button"
+                onClick={onClose}
+                title="Deselect active asset"
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Feed Body */}
+        <div className="intel-feed-body" style={{ flex: 1, overflowY: 'auto', padding: '1.15rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          {/* Header Metadata: Scope & Replay Provenance Tag */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.06em' }}>
+                MAHADEVAPURA &middot; BENGALURU
+              </span>
+              <Badge variant="warning">
+                SAMPLE DATA
+              </Badge>
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+              {intelFeedData.feedMetadata?.disclaimer}
+            </div>
+
+            {selectedItem && (
+              <div
+                style={{
+                  marginTop: '4px',
+                  background: 'var(--color-steel-blue)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '0.4rem 0.65rem',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '0.72rem',
+                }}
+              >
+                <span style={{ color: 'var(--text-muted)' }}>
+                  Active Inspector Item: <strong style={{ color: 'var(--text-primary)' }}>{selectedItem.data?.name || selectedItem.data?.id}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPanelMode('inspector')}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--color-water)', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  View Details &rarr;
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Status Filter Summary Bar */}
+          <div>
+            <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.35rem' }}>
+              Reports by Verification Status
+            </div>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {[
+                { key: 'ALL', label: `ALL (${counts.total})` },
+                { key: 'Verified', label: `VERIFIED (${counts.verified})` },
+                { key: 'Citizen Report', label: `CITIZEN (${counts.citizen})` },
+                { key: 'Investigating', label: `INVESTIGATING (${counts.investigating})` },
+              ].map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setStatusFilter(chip.key)}
+                  style={{
+                    background: statusFilter === chip.key ? 'var(--color-teal)' : 'var(--color-steel-blue)',
+                    border: '1px solid',
+                    borderColor: statusFilter === chip.key ? 'var(--color-water)' : 'var(--border-subtle)',
+                    color: statusFilter === chip.key ? '#ffffff' : 'var(--text-muted)',
+                    borderRadius: '4px',
+                    padding: '3px 7px',
+                    fontSize: '0.68rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)',
+                    transition: 'all var(--transition-fast)',
+                  }}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Feedback Banner for Operator Action */}
+          {pinnedNotification && (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                background: pinnedNotification.type === 'success' ? 'rgba(52, 211, 153, 0.12)' : 'rgba(228, 170, 85, 0.12)',
+                border: `1px solid ${pinnedNotification.type === 'success' ? 'var(--color-success-border)' : 'var(--color-warning-border)'}`,
+                borderRadius: '6px',
+                padding: '0.55rem 0.75rem',
+                fontSize: '0.75rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+              }}
+            >
+              <div style={{ color: pinnedNotification.type === 'success' ? 'var(--color-success)' : 'var(--color-amber)', lineHeight: '1.4' }}>
+                {pinnedNotification.message}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPinnedNotification(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Feed Cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {filteredReports.map((report) => {
+              const reviewState = reviewedReports[report.id];
+              const isReviewed = Boolean(reviewState);
+
+              const severityVariant =
+                report.severity === 'Critical'
+                  ? 'danger'
+                  : report.severity === 'Warning'
+                  ? 'warning'
+                  : 'info';
+
+              const statusVariant =
+                report.verificationStatus === 'Verified'
+                  ? 'success'
+                  : report.verificationStatus === 'Citizen Report'
+                  ? 'teal'
+                  : 'neutral';
+
+              return (
+                <div
+                  key={report.id}
+                  style={{
+                    background: 'var(--color-steel-blue)',
+                    border: isReviewed ? '1px solid var(--color-teal)' : '1px solid var(--border-medium)',
+                    borderRadius: '6px',
+                    padding: '0.85rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.55rem',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    transition: 'all var(--transition-fast)',
+                  }}
+                >
+                  {/* Top line: Report ID & Badges */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', flexWrap: 'wrap' }}>
+                    <span className="font-mono" style={{ fontSize: '0.72rem', color: 'var(--color-water)', fontWeight: 700 }}>
+                      {report.id}
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <Badge variant={severityVariant}>
+                        {report.severity?.toUpperCase()}
+                      </Badge>
+                      <Badge variant={statusVariant}>
+                        {report.verificationStatus}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Headline */}
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.35' }}>
+                    {report.headline}
+                  </h4>
+
+                  {/* Summary */}
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.45', margin: 0 }}>
+                    {report.summary}
+                  </p>
+
+                  {/* Location Landmark & Map Focus Button */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'rgba(10, 13, 18, 0.45)',
+                      padding: '0.4rem 0.55rem',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-primary)' }}>
+                      <MapPin size={12} color="var(--color-water)" />
+                      <span>{report.landmark}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onFocusMap(report.lat, report.lng, 15.5)}
+                      title={`Center camera on (${report.lat}, ${report.lng})`}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-water)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        padding: 0,
+                      }}
+                    >
+                      <Crosshair size={11} />
+                      <span className="font-mono">({report.lat}, {report.lng})</span>
+                    </button>
+                  </div>
+
+                  {/* Source and Timestamp */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    <span>
+                      {isValidSourceUrl(report.sourceUrl) ? (
+                        <a
+                          href={report.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: 'var(--color-water)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                        >
+                          {report.sourceName} <ExternalLink size={10} />
+                        </a>
+                      ) : (
+                        <span>Source: {report.sourceName}</span>
+                      )}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <Clock size={11} />
+                      <span className="font-mono">{report.timestampFormatted}</span>
+                    </div>
+                  </div>
+
+                  {/* Linked Hotspot Tag */}
+                  {report.hotspotId && (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-amber)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Flame size={12} />
+                      <span>Associated Hotspot: <strong className="font-mono">{report.hotspotId}</strong></span>
+                    </div>
+                  )}
+
+                  {/* Action Button: Review as Potential Hotspot */}
+                  <div style={{ marginTop: '2px' }}>
+                    {!isReviewed ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleReviewReport(report)}
+                        icon={Crosshair}
+                        className="intel-feed-review-button"
+                      >
+                        Review as Potential Hotspot
+                      </Button>
+                    ) : reviewState.status === 'CORRELATED' ? (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: 'rgba(52, 211, 153, 0.1)',
+                          border: '1px solid var(--color-success-border)',
+                          borderRadius: '4px',
+                          padding: '0.4rem 0.65rem',
+                          fontSize: '0.74rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--color-success)', fontWeight: 600 }}>
+                          <CheckCircle2 size={13} />
+                          <span>Linked to {reviewState.hotspotId}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPanelMode('inspector')}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-water)',
+                            cursor: 'pointer',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                          }}
+                        >
+                          <span>Inspect Hotspot</span>
+                          <ArrowRight size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: 'rgba(228, 170, 85, 0.1)',
+                          border: '1px solid var(--color-warning-border)',
+                          borderRadius: '4px',
+                          padding: '0.4rem 0.65rem',
+                          fontSize: '0.74rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--color-amber)', fontWeight: 600 }}>
+                          <BookmarkCheck size={13} />
+                          <span>PINNED FOR REVIEW</span>
+                        </div>
+                        <span className="font-mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          Sentinel Hazard Queue
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  // =========================================================================
+  // MODE: ASSET INSPECTOR (Preserved Exactly)
+  // =========================================================================
 
   // Case 1: Route Corridor Selected
   if (selectedItem?.type === 'route' && selectedItem.data) {
@@ -49,13 +545,16 @@ export function ContextualInspector({
             <Navigation size={18} color="var(--color-success)" />
             <span>Emergency Access Corridor</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {renderModeSwitch()}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -113,13 +612,16 @@ export function ContextualInspector({
             <Flame size={18} color="var(--color-vermilion)" />
             <span>Hotspot Inspector</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {renderModeSwitch()}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Inspector Sub-Tabs */}
@@ -284,13 +786,16 @@ export function ContextualInspector({
             <Building2 size={18} color={isHospital ? 'var(--color-water)' : 'var(--color-success)'} />
             <span>Facility Asset Inspector</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {renderModeSwitch()}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -361,13 +866,16 @@ export function ContextualInspector({
             <BrainCircuit size={18} color="var(--color-ai)" />
             <span>Action Inspector</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {renderModeSwitch()}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -433,11 +941,14 @@ export function ContextualInspector({
           <Compass size={18} color="var(--color-teal)" />
           <span>Operational Briefing</span>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {renderModeSwitch()}
+        </div>
       </div>
 
-      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflowY: 'auto' }}>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-          Select any <strong style={{ color: 'var(--text-primary)' }}>Hotspot</strong>, <strong style={{ color: 'var(--text-primary)' }}>Facility</strong>, or <strong style={{ color: 'var(--text-primary)' }}>Response Corridor</strong> on the map to inspect terrain factors and transit minutes.
+          Select any <strong style={{ color: 'var(--text-primary)' }}>Hotspot</strong>, <strong style={{ color: 'var(--text-primary)' }}>Facility</strong>, or <strong style={{ color: 'var(--text-primary)' }}>Response Corridor</strong> on the map, or switch to <strong style={{ color: 'var(--color-water)' }}>Intel Feed</strong> to review field intelligence.
         </div>
 
         {/* Hotspots Quick List */}
@@ -449,7 +960,10 @@ export function ContextualInspector({
             {hotspots.map((h) => (
               <div
                 key={h.id}
-                onClick={() => onFocusMap(h.lat, h.lng, 15.5)}
+                onClick={() => {
+                  onFocusMap(h.lat, h.lng, 15.5);
+                  onSelectItem({ type: 'hotspot', data: h });
+                }}
                 style={{
                   background: 'var(--color-steel-blue)',
                   border: '1px solid var(--border-subtle)',
@@ -486,7 +1000,10 @@ export function ContextualInspector({
               return (
                 <div
                   key={f.id}
-                  onClick={() => onFocusMap(f.lat, f.lng, 15.5)}
+                  onClick={() => {
+                    onFocusMap(f.lat, f.lng, 15.5);
+                    onSelectItem({ type: 'facility', data: f });
+                  }}
                   style={{
                     background: 'var(--color-steel-blue)',
                     border: '1px solid var(--border-subtle)',
