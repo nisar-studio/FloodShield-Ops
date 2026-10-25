@@ -1,0 +1,92 @@
+{
+  "feedMetadata": {
+    "title": "Flood Intelligence Feed",
+    "corridor": "Mahadevapura, Bengaluru",
+    "mode": "SAMPLE_DATA",
+    "disclaimer": "Synthetic demonstration records using existing replay landmarks and coordinates. No incident, source, timestamp, or verification claim is asserted. Live news integration is not implemented.",
+    "lastUpdated": null,
+    "totalReports": 5
+  },
+  "reports": [
+    {
+      "id": "SAMPLE-INTEL-001",
+      "headline": "[SAMPLE DATA] Potential inundation at ORR EcoSpace Underpass",
+      "summary": "Synthetic demonstration record associated with the existing replay hotspot. It does not assert a verified historical incident.",
+      "sourceName": "Synthetic demonstration record",
+      "sourceUrl": null,
+      "timestamp": "2022-09-05T03:45:00+05:30",
+      "timestampFormatted": "05-Sep-2022 03:45 IST",
+      "severity": "Critical",
+      "verificationStatus": "Investigating",
+      "landmark": "Outer Ring Road EcoSpace Underpass",
+      "lat": 12.9260,
+      "lng": 77.6830,
+      "hotspotId": "hs_001",
+      "isSynthetic": true
+    },
+    {
+      "id": "SAMPLE-INTEL-002",
+      "headline": "[SAMPLE DATA] Citizen-style report at Rainbow Drive / Sarjapur Road",
+      "summary": "Synthetic citizen-report example associated with the existing replay hotspot. It is not an attributed historical resident report.",
+      "sourceName": "Synthetic citizen-report example",
+      "sourceUrl": null,
+      "timestamp": "2022-09-05T04:15:00+05:30",
+      "timestampFormatted": "05-Sep-2022 04:15 IST",
+      "severity": "Critical",
+      "verificationStatus": "Citizen Report",
+      "landmark": "Rainbow Drive / Sarjapur Road Junction",
+      "lat": 12.9110,
+      "lng": 77.6795,
+      "hotspotId": "hs_002",
+      "isSynthetic": true
+    },
+    {
+      "id": "SAMPLE-INTEL-003",
+      "headline": "[SAMPLE DATA] Potential storm-drain backflow at Marathahalli Bridge",
+      "summary": "Synthetic demonstration record associated with the existing replay hotspot. It does not quote or reproduce an agency bulletin.",
+      "sourceName": "Synthetic demonstration record",
+      "sourceUrl": null,
+      "timestamp": "2022-09-05T04:40:00+05:30",
+      "timestampFormatted": "05-Sep-2022 04:40 IST",
+      "severity": "Warning",
+      "verificationStatus": "Investigating",
+      "landmark": "Marathahalli Bridge ORR Merge",
+      "lat": 12.9525,
+      "lng": 77.7015,
+      "hotspotId": "hs_003",
+      "isSynthetic": true
+    },
+    {
+      "id": "SAMPLE-INTEL-004",
+      "headline": "[SAMPLE DATA] Potential access disruption at Panathur Railway Subway",
+      "summary": "Synthetic demonstration record associated with the existing replay hotspot. It does not assert a verified public notice.",
+      "sourceName": "Synthetic demonstration record",
+      "sourceUrl": null,
+      "timestamp": "2022-09-05T05:10:00+05:30",
+      "timestampFormatted": "05-Sep-2022 05:10 IST",
+      "severity": "Warning",
+      "verificationStatus": "Investigating",
+      "landmark": "Panathur Railway Subway & Varthur Link",
+      "lat": 12.9412,
+      "lng": 77.7120,
+      "hotspotId": "hs_004",
+      "isSynthetic": true
+    },
+    {
+      "id": "SAMPLE-INTEL-005",
+      "headline": "[SAMPLE DATA] Citizen-style report near Doddanekundi storm drain",
+      "summary": "Synthetic citizen-report example using the existing replay landmark. It is not an attributed historical social-media report.",
+      "sourceName": "Synthetic citizen-report example",
+      "sourceUrl": null,
+      "timestamp": "2022-09-05T05:30:00+05:30",
+      "timestampFormatted": "05-Sep-2022 05:30 IST",
+      "severity": "Advisory",
+      "verificationStatus": "Citizen Report",
+      "landmark": "Doddanekundi Storm Drain Canal",
+      "lat": 12.9690,
+      "lng": 77.6980,
+      "hotspotId": null,
+      "isSynthetic": true
+    }
+  ]
+}

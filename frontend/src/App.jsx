@@ -194,6 +194,7 @@ export default function App() {
               simulation={simulation}
               hotspots={hotspots}
               facilities={facilities}
+              onSelectItem={setSelectedItem}
             />
           </div>
         )}
