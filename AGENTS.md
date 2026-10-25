@@ -59,6 +59,64 @@ AGENTS.md    this file
 - Reachable means a path exists on the road graph with flooded edges removed and closed roads removed, with travel time from road length and speed.
 - Report `baselineScore` (do nothing, flooded edges removed), and `planScore` (plan applied).
 
+## Approved synthetic simulation contract
+
+The following graph, travel times, and facility mappings are synthetic demo data. They are not verified Bengaluru infrastructure and must not be presented as real-world measurements.
+
+- Scenario ID: `blr-2022-09-replay`.
+- Approved dispatch origin: `node_001`.
+- Approved reachability limit: 30 minutes.
+- Default synthetic flooded edges: `edge_002` and `edge_003`.
+- The graph contains exactly these eight synthetic edges:
+
+| Edge ID | From node | To node | Travel time |
+|---|---|---|---:|
+| `edge_001` | `node_001` | `node_002` | 5 min |
+| `edge_002` | `node_002` | `node_003` | 5 min |
+| `edge_003` | `node_003` | `node_004` | 5 min |
+| `edge_004` | `node_001` | `node_005` | 8 min |
+| `edge_005` | `node_005` | `node_004` | 7 min |
+| `edge_006` | `node_002` | `node_006` | 4 min |
+| `edge_007` | `node_006` | `node_004` | 6 min |
+| `edge_008` | `node_005` | `node_006` | 3 min |
+
+- The six agreed synthetic facility mappings are:
+
+| Facility ID | Name | Graph node |
+|---|---|---|
+| `fac_001` | Sakra World Hospital | `node_004` |
+| `fac_002` | Manipal Hospital Varthur Road | `node_006` |
+| `fac_003` | Rainbow Children's Hospital Marathahalli | `node_003` |
+| `fac_004` | Mahadevapura Community Center Shelter | `node_005` |
+| `fac_005` | Bellandur Relief Staging Post | `node_002` |
+| `fac_006` | Marathahalli Sports Complex Relief Camp | `node_004` |
+
+- `threshold` is configurable. `0.80` is a provisional default, not a final approval. The effective threshold must be returned in `SimulationResult`, and `passed` must be calculated as `planScore >= threshold`.
+- Baseline and planned calculations use the same initial flooded-edge list. Planned `road_closure` actions modify only the planned graph; they do not change `floodedEdgeIds` in the result.
+- `SimulationResult.perFacility` must contain exactly six unique facility entries, one for each agreed facility. Each entry contains `facilityId`, `reachableBefore`, `reachableAfter`, `minutesBefore`, and `minutesAfter`. Travel times are numeric when reachable and `null` when unreachable.
+
+### Simulation error responses
+
+Simulator errors use this JSON shape:
+
+```json
+{ "error": { "code": "INVALID_REQUEST", "message": "string", "actionId": "optional" } }
+```
+
+- HTTP 400: `INVALID_REQUEST`.
+- HTTP 422: `UNSUPPORTED_ACTION`.
+- HTTP 404: `SCENARIO_NOT_FOUND`.
+- Include `actionId` when the error applies to a specific action.
+
+### Synthetic simulation contract tests
+
+Tests must cover the following without using real infrastructure data:
+
+- Default `edge_002` and `edge_003` flooding isolates `node_003` as specified by the synthetic graph tests.
+- Alternative routes behave according to the approved edge table.
+- Configurable thresholds change `passed` using `planScore >= threshold`.
+- Invalid and unsupported actions never return a successful simulation result.
+
 ## Agent tools (backend)
 
 `get_forecast`, `get_road_graph`, `score_hotspots`, `simulate_plan`, `draft_advisory`, `request_approval`, `log_decision`.
@@ -142,6 +200,8 @@ All coordinates are WGS84 `lat`, `lng` numbers. All timestamps are ISO 8601 stri
 }
 ```
 
+`SimulationResult.perFacility` must contain all six unique agreed facilities. `threshold` is the effective configurable threshold, and `passed` is true exactly when `planScore >= threshold`.
+
 ### AuditEntry
 ```json
 {
@@ -164,6 +224,7 @@ All coordinates are WGS84 `lat`, `lng` numbers. All timestamps are ISO 8601 stri
 
 Simulator service:
 - `POST /simulate` with `{ "scenarioId": "...", "actions": [ ... ] }` returns SimulationResult.
+- Backend integration may additionally send `planId` as an optional correlation id and `threshold` as an optional score-threshold override; the simulator echoes `planId` and uses `0.80` only when `threshold` is omitted. Public replay requests must not send `floodedEdgeIds`; replay flood observations remain simulator-owned.
 - `GET  /hotspots?scenarioId=...` returns Hotspot[].
 - `GET  /facilities?scenarioId=...` returns Facility[].
 

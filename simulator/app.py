@@ -1,48 +1,64 @@
-"""
-FloodShield Ops Simulator API.
+"""FastAPI service for the approved FloodShield synthetic simulation.
 
-All data is deterministic synthetic demonstration data.
-This API must not be used for real flood or emergency-response decisions.
+This service is deterministic decision-support demo code. It is not a flood
+prediction system and must not be used for real emergency-response decisions.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    StrictStr,
-    field_validator,
-)
+from fastapi import FastAPI, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from road_graph import (
+    DEFAULT_FLOODED_EDGE_IDS,
+    FACILITIES,
     ROAD_IDS,
+    REACHABILITY_THRESHOLD_MINUTES,
     build_road_graph,
     calculate_reachability,
     validate_data,
 )
 
 
-# -------------------- Configuration --------------------
-
-DEFAULT_SCENARIO_ID = "demo-rain"
+DEFAULT_SCENARIO_ID = "blr-2022-09-replay"
 PLAN_THRESHOLD = 0.80
+SUPPORTED_ACTION_TYPES = frozenset(
+    {
+        "road_closure",
+        "diversion",
+        "pump_prepositioning",
+        "ambulance_staging",
+    }
+)
 
 
-# -------------------- Validate Static Configuration --------------------
+class SimulationError(Exception):
+    """A contract-level simulator error with an HTTP status and optional action."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        status_code: int,
+        action_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+        self.action_id = action_id
+
 
 try:
     validate_data()
 except ValueError as exc:
-    raise RuntimeError(
-        f"Invalid road network configuration: {exc}"
-    ) from exc
+    raise RuntimeError(f"Invalid synthetic graph configuration: {exc}") from exc
 
-
-# -------------------- Application --------------------
 
 app = FastAPI(
     title="FloodShield Ops Simulator",
@@ -50,117 +66,92 @@ app = FastAPI(
         "Deterministic synthetic flood-response simulation API. "
         "This API uses demonstration data only."
     ),
-    version="1.0.0",
+    version="2.0.0",
 )
 
-
-# -------------------- Synthetic Hotspots --------------------
 
 HOTSPOTS = (
     {
-        "id": "HS01",
-        "name": "Road R02 flood-risk segment",
-        "lat": 12.95,
-        "lng": 77.70,
-        "riskScore": 0.90,
-        "reasons": ["Synthetic flood scenario"],
-        "floodedEdgeIds": ["R02"],
+        "id": "hs_001",
+        "name": "Synthetic node_003 flood-risk segment",
+        "lat": 12.9497,
+        "lng": 77.7011,
+        "riskScore": 0.92,
+        "reasons": ["Default replay flooding isolates node_003"],
+        "floodedEdgeIds": ["edge_002", "edge_003"],
     },
     {
-        "id": "HS02",
-        "name": "Road R06 flood-risk segment",
-        "lat": 12.94,
-        "lng": 77.71,
-        "riskScore": 0.65,
-        "reasons": ["Synthetic low-lying segment"],
-        "floodedEdgeIds": ["R06"],
+        "id": "hs_002",
+        "name": "Synthetic node_005 access segment",
+        "lat": 12.9868,
+        "lng": 77.6972,
+        "riskScore": 0.78,
+        "reasons": ["Low-lying synthetic access route"],
+        "floodedEdgeIds": ["edge_004"],
+    },
+    {
+        "id": "hs_003",
+        "name": "Synthetic node_006 connector",
+        "lat": 12.9572,
+        "lng": 77.7391,
+        "riskScore": 0.74,
+        "reasons": ["Synthetic alternate-route dependency"],
+        "floodedEdgeIds": ["edge_006", "edge_008"],
     },
 )
 
 
-# -------------------- Request Models --------------------
-
-
-class ReopenRoadAction(BaseModel):
-    """Action used to reopen one road."""
-
+class ActionTarget(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["reopen_road"]
-    target: StrictStr = Field(
-        min_length=1,
-        max_length=20,
-        description="Road ID to reopen, for example R02.",
-    )
+    edgeIds: list[StrictStr] = Field(min_length=1, max_length=len(ROAD_IDS))
+    label: StrictStr = Field(min_length=1, max_length=200)
 
-
-class SimulationRequest(BaseModel):
-    """Request body for the simulation endpoint."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    scenarioId: StrictStr = Field(
-        default=DEFAULT_SCENARIO_ID,
-        min_length=1,
-        max_length=100,
-    )
-
-    floodedEdgeIds: list[StrictStr] = Field(
-        default_factory=list,
-        max_length=len(ROAD_IDS),
-    )
-
-    actions: list[ReopenRoadAction] = Field(
-        default_factory=list,
-        max_length=100,
-    )
-
-    @field_validator("floodedEdgeIds")
+    @field_validator("edgeIds")
     @classmethod
-    def validate_flooded_edge_ids(
-        cls,
-        values: list[str],
-    ) -> list[str]:
-        """Reject empty and duplicate road IDs."""
-        if any(not value.strip() for value in values):
-            raise ValueError(
-                "floodedEdgeIds cannot contain empty road IDs."
-            )
-
+    def validate_edge_ids(cls, values: list[str]) -> list[str]:
         if len(values) != len(set(values)):
-            raise ValueError(
-                "floodedEdgeIds must not contain duplicate road IDs."
-            )
-
+            raise ValueError("target.edgeIds must not contain duplicates")
         return values
 
 
-# -------------------- Response Models --------------------
-
-
-class HealthResponse(BaseModel):
+class SimulationAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: Literal["ok"]
-    service: str
+    actionId: StrictStr = Field(min_length=1, max_length=128)
+    type: StrictStr = Field(min_length=1, max_length=64)
+    target: ActionTarget
+    rationale: StrictStr = Field(min_length=1, max_length=1000)
+    evidence: list[StrictStr] = Field(min_length=1, max_length=50)
+    confidence: float = Field(ge=0.0, le=1.0)
 
 
-class FacilityResult(BaseModel):
+class SimulationRequest(BaseModel):
+    """Public simulation request.
+
+    ``planId`` is an optional correlation extension used by the backend. When
+    supplied, it is echoed in the SimulationResult. ``threshold`` is the
+    optional configurable pass threshold. Replay flood observations are owned
+    by the simulator and cannot be overridden through this endpoint.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    scenarioId: StrictStr = Field(min_length=1, max_length=128)
+    actions: list[SimulationAction] = Field(default_factory=list, max_length=100)
+    planId: StrictStr = Field(default="plan_simulation", min_length=1, max_length=128)
+    threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class FacilityResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    type: str
+    type: Literal["hospital", "shelter"]
     name: str
+    lat: float
+    lng: float
     nodeId: str
-    reachable: bool
-    travelTimeMinutes: int | float | None
-
-
-class FacilitiesResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    scenarioId: str
-    facilities: list[FacilityResult]
 
 
 class HotspotResponse(BaseModel):
@@ -175,233 +166,192 @@ class HotspotResponse(BaseModel):
     floodedEdgeIds: list[str]
 
 
-class HotspotsResponse(BaseModel):
+class PerFacilityResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["synthetic_demo_data"]
-    hotspots: list[HotspotResponse]
-
-
-class VerificationResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    method: Literal["deterministic_reachability"]
-    reason: str
+    facilityId: str
+    reachableBefore: bool
+    reachableAfter: bool
+    minutesBefore: int | float | None
+    minutesAfter: int | float | None
 
 
 class SimulationResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    scenarioId: str
+    planId: str
     baselineScore: float = Field(ge=0.0, le=1.0)
     planScore: float = Field(ge=0.0, le=1.0)
     threshold: float = Field(ge=0.0, le=1.0)
     passed: bool
+    perFacility: list[PerFacilityResult]
     floodedEdgeIds: list[str]
-    perFacility: list[FacilityResult]
-    verification: VerificationResponse
-    note: str
 
 
-# -------------------- Simulation Logic --------------------
+def _error_content(error: SimulationError) -> dict[str, dict[str, str]]:
+    detail: dict[str, str] = {"code": error.code, "message": error.message}
+    if error.action_id is not None:
+        detail["actionId"] = error.action_id
+    return {"error": detail}
 
 
-def _validate_flooded_ids(
-    flooded_ids: Sequence[str],
-) -> set[str]:
-    """Validate and normalize flooded road IDs."""
-    values = list(flooded_ids)
+@app.exception_handler(SimulationError)
+async def simulation_error_handler(
+    request: Request,
+    error: SimulationError,
+) -> JSONResponse:
+    del request
+    return JSONResponse(status_code=error.status_code, content=_error_content(error))
 
-    if any(
-        not isinstance(value, str) or not value.strip()
-        for value in values
-    ):
-        raise ValueError(
-            "Flooded road IDs must be non-empty strings."
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(
+    request: Request,
+    error: RequestValidationError,
+) -> JSONResponse:
+    del request
+    first_error = error.errors()[0] if error.errors() else {}
+    location = ".".join(str(part) for part in first_error.get("loc", []))
+    message = first_error.get("msg", "Request does not match the simulator contract.")
+    if location:
+        message = f"{location}: {message}"
+    return JSONResponse(
+        status_code=400,
+        content={"error": {"code": "INVALID_REQUEST", "message": message}},
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def standard_http_error_handler(
+    request: Request,
+    error: StarletteHTTPException,
+) -> JSONResponse:
+    del request
+    code = "NOT_FOUND" if error.status_code == 404 else "HTTP_ERROR"
+    message = error.detail if isinstance(error.detail, str) else "Simulator request failed."
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"error": {"code": code, "message": message}},
+    )
+
+
+def _require_scenario(scenario_id: str) -> None:
+    if scenario_id != DEFAULT_SCENARIO_ID:
+        raise SimulationError(
+            "SCENARIO_NOT_FOUND",
+            f"Scenario '{scenario_id}' was not found.",
+            404,
         )
 
-    if len(values) != len(set(values)):
-        raise ValueError(
-            "Flooded road IDs must not contain duplicates."
-        )
 
-    unknown_ids = set(values) - ROAD_IDS
-
-    if unknown_ids:
-        raise ValueError(
-            f"Unknown road IDs: {sorted(unknown_ids)}"
-        )
-
-    return set(values)
-
-
-def simulate(
-    flooded_ids: Sequence[str],
-    actions: Sequence[ReopenRoadAction],
-) -> dict[str, Any]:
-    """
-    Run one deterministic simulation.
-
-    Flooded roads are removed first. Actions are then applied.
-    A reopen_road action removes a road from the flooded set.
-    """
-    flooded = _validate_flooded_ids(flooded_ids)
-
+def _closed_edge_ids(actions: list[SimulationAction]) -> set[str]:
+    closed: set[str] = set()
+    action_ids: set[str] = set()
     for action in actions:
-        if not isinstance(action, ReopenRoadAction):
-            raise ValueError(
-                "Each action must be a valid reopen_road action."
+        if action.actionId in action_ids:
+            raise SimulationError(
+                "INVALID_REQUEST",
+                f"Duplicate actionId '{action.actionId}'.",
+                400,
+                action.actionId,
+            )
+        action_ids.add(action.actionId)
+
+        if action.type not in SUPPORTED_ACTION_TYPES:
+            raise SimulationError(
+                "UNSUPPORTED_ACTION",
+                f"Action type '{action.type}' is not supported.",
+                422,
+                action.actionId,
             )
 
-        if action.target not in ROAD_IDS:
-            raise ValueError(
-                f"Action target must be a known road ID: "
-                f"{action.target}"
+        unknown = set(action.target.edgeIds) - ROAD_IDS
+        if unknown:
+            raise SimulationError(
+                "INVALID_REQUEST",
+                f"Unknown target edge IDs: {sorted(unknown)}.",
+                400,
+                action.actionId,
             )
 
-        # Reopening an already-open road is harmless and idempotent.
-        flooded.discard(action.target)
+        if action.type == "road_closure":
+            closed.update(action.target.edgeIds)
+    return closed
 
-    graph = build_road_graph(flooded)
-    result = calculate_reachability(graph)
 
+def simulate(request: SimulationRequest) -> dict[str, Any]:
+    """Run the baseline and planned synthetic reachability calculations."""
+    _require_scenario(request.scenarioId)
+    flooded = set(DEFAULT_FLOODED_EDGE_IDS)
+    closed = _closed_edge_ids(request.actions)
+    threshold = PLAN_THRESHOLD if request.threshold is None else request.threshold
+
+    baseline = calculate_reachability(
+        build_road_graph(flooded_edge_ids=flooded),
+        threshold_minutes=REACHABILITY_THRESHOLD_MINUTES,
+    )
+    planned = calculate_reachability(
+        build_road_graph(flooded_edge_ids=flooded, closed_edge_ids=closed),
+        threshold_minutes=REACHABILITY_THRESHOLD_MINUTES,
+    )
+
+    before_by_id = {item["id"]: item for item in baseline["perFacility"]}
+    after_by_id = {item["id"]: item for item in planned["perFacility"]}
+    per_facility = [
+        {
+            "facilityId": facility["id"],
+            "reachableBefore": before_by_id[facility["id"]]["reachable"],
+            "reachableAfter": after_by_id[facility["id"]]["reachable"],
+            "minutesBefore": before_by_id[facility["id"]]["travelTimeMinutes"],
+            "minutesAfter": after_by_id[facility["id"]]["travelTimeMinutes"],
+        }
+        for facility in sorted(FACILITIES, key=lambda item: item["id"])
+    ]
+    plan_score = float(planned["score"])
     return {
-        "score": float(result["score"]),
-        "reachableCount": result["reachableCount"],
-        "totalFacilities": result["totalFacilities"],
-        "perFacility": result["perFacility"],
+        "planId": request.planId,
+        "baselineScore": float(baseline["score"]),
+        "planScore": plan_score,
+        "threshold": threshold,
+        "passed": plan_score >= threshold,
+        "perFacility": per_facility,
+        # This deliberately remains the initial flood list. Road closures only
+        # affect the planned graph and are not new flood observations.
         "floodedEdgeIds": sorted(flooded),
     }
 
 
-def _bad_request(exc: ValueError) -> HTTPException:
-    """Convert a domain validation error into HTTP 400."""
-    return HTTPException(
-        status_code=400,
-        detail=str(exc),
-    )
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "service": "FloodShield Ops Simulator"}
 
 
-# -------------------- API Endpoints --------------------
-
-
-@app.get(
-    "/health",
-    response_model=HealthResponse,
-    summary="Check API health",
-)
-def health() -> HealthResponse:
-    """Return API health status."""
-    return HealthResponse(
-        status="ok",
-        service="FloodShield Ops Simulator",
-    )
-
-
-@app.get(
-    "/facilities",
-    response_model=FacilitiesResponse,
-    summary="Get facility reachability",
-)
+@app.get("/facilities", response_model=list[FacilityResponse])
 def get_facilities(
-    flooded_edge_ids: list[StrictStr] | None = Query(
-        default=None,
-        alias="floodedEdgeIds",
-        description=(
-            "Flooded road ID. Repeat this parameter for multiple roads."
-        ),
-    ),
-) -> FacilitiesResponse:
-    """
-    Get facility reachability for a flooded-road configuration.
-
-    Example:
-
-    /facilities?floodedEdgeIds=R02&floodedEdgeIds=R06
-    """
-    try:
-        result = simulate(
-            flooded_ids=flooded_edge_ids or [],
-            actions=[],
+    scenarioId: StrictStr = Query(default=DEFAULT_SCENARIO_ID, min_length=1),
+) -> list[FacilityResponse]:
+    _require_scenario(scenarioId)
+    return [
+        FacilityResponse(
+            id=facility["id"],
+            type=facility["type"],
+            name=facility["name"],
+            lat=facility["lat"],
+            lng=facility["lng"],
+            nodeId=facility["node_id"],
         )
-    except ValueError as exc:
-        raise _bad_request(exc) from exc
-
-    return FacilitiesResponse(
-        scenarioId=DEFAULT_SCENARIO_ID,
-        facilities=result["perFacility"],
-    )
+        for facility in FACILITIES
+    ]
 
 
-@app.get(
-    "/hotspots",
-    response_model=HotspotsResponse,
-    summary="Get synthetic flood hotspots",
-)
-def get_hotspots() -> HotspotsResponse:
-    """Return synthetic hotspot data sorted by risk score."""
-    sorted_hotspots = sorted(
-        HOTSPOTS,
-        key=lambda item: (
-            -float(item["riskScore"]),
-            str(item["id"]),
-        ),
-    )
-
-    return HotspotsResponse(
-        source="synthetic_demo_data",
-        hotspots=sorted_hotspots,
-    )
+@app.get("/hotspots", response_model=list[HotspotResponse])
+def get_hotspots(
+    scenarioId: StrictStr = Query(default=DEFAULT_SCENARIO_ID, min_length=1),
+) -> list[HotspotResponse]:
+    _require_scenario(scenarioId)
+    return [HotspotResponse(**hotspot) for hotspot in HOTSPOTS]
 
 
-@app.post(
-    "/simulate",
-    response_model=SimulationResponse,
-    summary="Run a flood-response simulation",
-)
-def run_simulation(
-    request: SimulationRequest,
-) -> SimulationResponse:
-    """
-    Compare baseline reachability with the proposed action plan.
-    """
-    try:
-        baseline = simulate(
-            flooded_ids=request.floodedEdgeIds,
-            actions=[],
-        )
-
-        planned = simulate(
-            flooded_ids=request.floodedEdgeIds,
-            actions=request.actions,
-        )
-    except ValueError as exc:
-        raise _bad_request(exc) from exc
-
-    baseline_score = float(baseline["score"])
-    plan_score = float(planned["score"])
-    passed = plan_score >= PLAN_THRESHOLD
-
-    reason = (
-        "Plan meets the reachability threshold."
-        if passed
-        else "Plan does not meet the reachability threshold."
-    )
-
-    return SimulationResponse(
-        scenarioId=request.scenarioId,
-        baselineScore=baseline_score,
-        planScore=plan_score,
-        threshold=PLAN_THRESHOLD,
-        passed=passed,
-        floodedEdgeIds=planned["floodedEdgeIds"],
-        perFacility=planned["perFacility"],
-        verification=VerificationResponse(
-            method="deterministic_reachability",
-            reason=reason,
-        ),
-        note=(
-            "Synthetic simulation only; "
-            "not real flood or emergency-response advice."
-        ),
-    )
+@app.post("/simulate", response_model=SimulationResponse)
+def run_simulation(request: SimulationRequest) -> SimulationResponse:
+    return SimulationResponse(**simulate(request))

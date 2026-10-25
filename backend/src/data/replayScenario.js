@@ -26,7 +26,7 @@ const replayScenarioBundle = {
       name: 'Sakra World Hospital',
       lat: 12.9255,
       lng: 77.6845,
-      nodeId: 'node_sakra',
+      nodeId: 'node_004',
     },
     {
       id: 'fac_002',
@@ -34,7 +34,7 @@ const replayScenarioBundle = {
       name: 'Manipal Hospital Varthur Road',
       lat: 12.9572,
       lng: 77.7391,
-      nodeId: 'node_manipal_varthur',
+      nodeId: 'node_006',
     },
     {
       id: 'fac_003',
@@ -42,7 +42,7 @@ const replayScenarioBundle = {
       name: "Rainbow Children's Hospital Marathahalli",
       lat: 12.9497,
       lng: 77.7011,
-      nodeId: 'node_rainbow_marathahalli',
+      nodeId: 'node_003',
     },
     {
       id: 'fac_004',
@@ -50,7 +50,7 @@ const replayScenarioBundle = {
       name: 'Mahadevapura Community Center Shelter',
       lat: 12.9868,
       lng: 77.6972,
-      nodeId: 'node_mahadevapura_hall',
+      nodeId: 'node_005',
     },
     {
       id: 'fac_005',
@@ -58,7 +58,7 @@ const replayScenarioBundle = {
       name: 'Bellandur Relief Staging Post',
       lat: 12.9351,
       lng: 77.671,
-      nodeId: 'node_bellandur_relief',
+      nodeId: 'node_002',
     },
     {
       id: 'fac_006',
@@ -66,7 +66,7 @@ const replayScenarioBundle = {
       name: 'Marathahalli Sports Complex Relief Camp',
       lat: 12.955,
       lng: 77.708,
-      nodeId: 'node_marathahalli_sports',
+      nodeId: 'node_004',
     },
   ],
   hotspots: [
@@ -81,7 +81,7 @@ const replayScenarioBundle = {
         'Bellandur lake overflow channel surge',
         'Peak replay rainfall exceeds 35mm/h',
       ],
-      floodedEdgeIds: ['edge_orr_ecospace_n', 'edge_orr_ecospace_s'],
+      floodedEdgeIds: ['edge_002', 'edge_003'],
     },
     {
       id: 'hs_002',
@@ -94,7 +94,7 @@ const replayScenarioBundle = {
         'Culvert cross-section capacity deficit',
         'Replay fixture inundation threshold',
       ],
-      floodedEdgeIds: ['edge_sarjapur_rd_culvert', 'edge_rainbow_drive_access'],
+      floodedEdgeIds: ['edge_004'],
     },
     {
       id: 'hs_003',
@@ -103,7 +103,7 @@ const replayScenarioBundle = {
       lng: 77.7015,
       riskScore: 0.78,
       reasons: ['Major storm drain backflow', 'Western flyover ramp runoff ponding'],
-      floodedEdgeIds: ['edge_marathahalli_merge_w'],
+      floodedEdgeIds: ['edge_006', 'edge_008'],
     },
     {
       id: 'hs_004',
@@ -112,7 +112,7 @@ const replayScenarioBundle = {
       lng: 77.712,
       riskScore: 0.74,
       reasons: ['Railway underpass low point', 'Varthur lake secondary drain bottleneck'],
-      floodedEdgeIds: ['edge_panathur_subway'],
+      floodedEdgeIds: ['edge_005'],
     },
   ],
 };
