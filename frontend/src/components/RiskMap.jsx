@@ -1,77 +1,140 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import L from 'leaflet';
-import { MapPin, Layers, AlertTriangle, Eye, ListFilter, Navigation } from 'lucide-react';
+import { 
+  MapPin, 
+  Layers, 
+  Compass, 
+  CloudRain, 
+  Maximize2, 
+  SlidersHorizontal,
+  Flame,
+  CheckCircle,
+  XCircle,
+  Activity,
+  Crosshair,
+  Wind,
+  Droplets,
+  AlertTriangle,
+  X
+} from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 
-// Dispatch origin point in Mahadevapura / Bellandur corridor
 const DISPATCH_ORIGIN = {
   name: 'Central Emergency Dispatch Unit (Mahadevapura)',
   lat: 12.9370,
   lng: 77.6920,
 };
 
-// Create custom SVG markers for clean, dependency-free command center rendering
-function createMarkerIcon(type, label = '', extra = '') {
-  let color = '#38bdf8';
+// Tactical SVG markers
+function createMarkerIcon(type, label = '', isSelected = false) {
   let innerSvg = '';
+  const strokeHighlight = isSelected ? 'stroke="#ffffff" stroke-width="3"' : '';
 
   if (type === 'hotspot') {
-    color = '#ef4444';
-    innerSvg = `<circle cx="16" cy="16" r="10" fill="${color}" fill-opacity="0.9"/>
-                <circle cx="16" cy="16" r="14" fill="none" stroke="${color}" stroke-width="2" stroke-opacity="0.6"/>
-                <text x="16" y="20" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">${label}</text>`;
+    innerSvg = `
+      <circle cx="18" cy="18" r="14" fill="#D65B4C" fill-opacity="0.95" ${strokeHighlight}/>
+      <circle cx="18" cy="18" r="17" fill="none" stroke="#D65B4C" stroke-width="2" stroke-opacity="0.6"/>
+      <text x="18" y="22" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle" font-family="Space Grotesk, sans-serif">${label}</text>
+    `;
   } else if (type === 'hospital') {
-    color = '#0284c7';
-    innerSvg = `<rect x="6" y="6" width="20" height="20" rx="4" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
-                <path d="M16 10 v12 M10 16 h12" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>`;
+    innerSvg = `
+      <rect x="5" y="5" width="26" height="26" rx="6" fill="#1C2B36" stroke="#6FA9B8" stroke-width="2" ${strokeHighlight}/>
+      <path d="M18 10 v16 M10 18 h16" stroke="#6FA9B8" stroke-width="3.5" stroke-linecap="round"/>
+    `;
   } else if (type === 'shelter') {
-    color = '#10b981';
-    innerSvg = `<rect x="6" y="6" width="20" height="20" rx="4" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
-                <path d="M10 20 L16 10 L22 20 Z" fill="#ffffff"/>`;
+    innerSvg = `
+      <rect x="5" y="5" width="26" height="26" rx="6" fill="#1C2B36" stroke="#34D399" stroke-width="2" ${strokeHighlight}/>
+      <path d="M10 23 L18 11 L26 23 Z" fill="#34D399"/>
+    `;
   } else if (type === 'dispatch') {
-    color = '#8b5cf6';
-    innerSvg = `<circle cx="16" cy="16" r="11" fill="${color}" stroke="#ffffff" stroke-width="2"/>
-                <circle cx="16" cy="16" r="4" fill="#ffffff"/>`;
+    innerSvg = `
+      <circle cx="18" cy="18" r="14" fill="#3C7F82" stroke="#E8EEF0" stroke-width="2.5" ${strokeHighlight}/>
+      <circle cx="18" cy="18" r="5" fill="#E8EEF0"/>
+    `;
   }
 
   const html = `
-    <div style="width:32px; height:32px; display:flex; align-items:center; justify-content:center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));">
-      <svg width="32" height="32" viewBox="0 0 32 32">${innerSvg}</svg>
+    <div style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)); transition: transform 0.2s ease;">
+      <svg width="36" height="36" viewBox="0 0 36 36">${innerSvg}</svg>
     </div>
   `;
 
   return L.divIcon({
     html,
-    className: 'custom-leaflet-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16],
+    className: 'floodshield-tactical-marker',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18],
   });
 }
 
-export function RiskMap({
-  facilities = [],
-  hotspots = [],
-  simulation = null,
-  bbox = null,
-  selectedHotspotId = null,
-  onSelectHotspot = () => {},
-}) {
+export const RiskMap = forwardRef(function RiskMap(
+  {
+    facilities = [],
+    hotspots = [],
+    simulation = null,
+    bbox = null,
+    selectedItem = null,
+    onSelectItem = () => {},
+    replayHour = 6,
+    rainfall = null,
+  },
+  ref
+) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const markersLayerRef = useRef(null);
+  const layersRef = useRef({
+    markers: null,
+    floodZones: null,
+    routes: null,
+    watershed: null,
+    radarCanvas: null,
+  });
 
-  const [viewMode, setViewMode] = useState('map'); // 'map' | 'list'
-  const [mapError, setMapError] = useState(null);
+  const [layerVisibility, setLayerVisibility] = useState({
+    floodZones: true,
+    routes: true,
+    hotspots: true,
+    facilities: true,
+    watershed: true,
+    radarOverlay: false,
+  });
 
-  // Initialize Leaflet Map
+  const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+  const [isFocusMenuOpen, setIsFocusMenuOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('map');
+
+  // CARTO API Key configuration
+  const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY;
+  const isCartoKeyMissing = !cartoApiKey || cartoApiKey === 'PASTE_MY_REGENERATED_KEY_HERE' || cartoApiKey.trim() === '';
+  const [hasDismissedKeyWarning, setHasDismissedKeyWarning] = useState(false);
+  const [hasTileError, setHasTileError] = useState(false);
+  const showKeySetupNotice = (isCartoKeyMissing || hasTileError) && !hasDismissedKeyWarning;
+
+  // Expose camera flyTo method
+  useImperativeHandle(ref, () => ({
+    flyTo(lat, lng, zoom = 15) {
+      if (mapInstanceRef.current && typeof lat === 'number' && typeof lng === 'number') {
+        mapInstanceRef.current.flyTo([lat, lng], zoom, {
+          duration: 0.85,
+          easeLinearity: 0.2,
+        });
+      }
+    },
+    resetView() {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([12.945, 77.70], 13, { duration: 0.85 });
+      }
+    },
+  }));
+
+  // Initialize Map
   useEffect(() => {
     if (viewMode !== 'map' || !mapContainerRef.current) return;
 
     try {
       if (!mapInstanceRef.current) {
-        // Center around Mahadevapura (approx 12.945, 77.70)
         const defaultCenter = [12.945, 77.70];
         const defaultZoom = 13;
 
@@ -82,320 +145,651 @@ export function RiskMap({
           attributionControl: false,
         });
 
-        // Add zoom control top right
+        // Top right zoom
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // Attribution in bottom right with OSM credit
         L.control.attribution({ position: 'bottomright', prefix: false })
-          .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style="color:#64748b">OpenStreetMap</a> contributors &bull; CartoDB DarkMatter')
+          .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style="color:var(--text-muted)">OpenStreetMap</a> contributors &bull; &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer" style="color:var(--text-muted)">CARTO</a>')
           .addTo(map);
 
-        // Dark Matter basemap tiles (ideal for command center) with offline fallback detection
-        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        // Dark Matter basemap (dark_all style) with API key query parameter
+        const cartoTileUrl = cartoApiKey
+          ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`
+          : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+        const tileLayer = L.tileLayer(cartoTileUrl, {
           maxZoom: 19,
           subdomains: 'abcd',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors &bull; &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>',
         });
 
         tileLayer.on('tileerror', () => {
-          // If network is offline or Carto tiles fail, log notice and retain map
-          console.warn('Map tiles offline or network restricted. Coordinates and markers remain plotted.');
+          setHasTileError(true);
         });
 
         tileLayer.addTo(map);
 
-        const markersLayer = L.layerGroup().addTo(map);
-        markersLayerRef.current = markersLayer;
+        layersRef.current.watershed = L.layerGroup().addTo(map);
+        layersRef.current.floodZones = L.layerGroup().addTo(map);
+        layersRef.current.routes = L.layerGroup().addTo(map);
+        layersRef.current.markers = L.layerGroup().addTo(map);
+
         mapInstanceRef.current = map;
       }
     } catch (err) {
       console.error('Error initializing Leaflet map:', err);
-      setMapError('Interactive map initialization failed. Switched to coordinate list mode.');
       setViewMode('list');
     }
-
-    return () => {
-      // Don't necessarily destroy on every render, cleanup handled on unmount
-    };
   }, [viewMode]);
 
-  // Update markers when data changes
+  // Update Geometry & Layers
   useEffect(() => {
     const map = mapInstanceRef.current;
-    const markersLayer = markersLayerRef.current;
-    if (!map || !markersLayer || viewMode !== 'map') return;
+    if (!map || viewMode !== 'map') return;
 
-    markersLayer.clearLayers();
+    const { markers, floodZones, routes, watershed } = layersRef.current;
+    if (!markers || !floodZones || !routes || !watershed) return;
+
+    markers.clearLayers();
+    floodZones.clearLayers();
+    routes.clearLayers();
+    watershed.clearLayers();
+
     const bounds = L.latLngBounds();
 
-    // 1. Dispatch Origin Marker
+    // 1. Watershed Bounding Box Polygon
+    if (layerVisibility.watershed && bbox && bbox.south && bbox.north && bbox.west && bbox.east) {
+      const bboxPolygon = L.rectangle(
+        [
+          [bbox.south, bbox.west],
+          [bbox.north, bbox.east],
+        ],
+        {
+          color: '#3C7F82',
+          weight: 1.5,
+          dashArray: '6, 6',
+          fillColor: '#1C2B36',
+          fillOpacity: 0.12,
+        }
+      ).bindTooltip('Mahadevapura Watershed Pilot Basin (KSNDMC Radar Scope)', { sticky: true });
+      watershed.addLayer(bboxPolygon);
+    }
+
+    // 2. Dispatch Origin Hub
     const dispatchMarker = L.marker([DISPATCH_ORIGIN.lat, DISPATCH_ORIGIN.lng], {
       icon: createMarkerIcon('dispatch'),
-    }).bindPopup(`
-      <div style="font-family: var(--font-sans); font-size: 12px;">
-        <div style="font-weight: 800; color: #a78bfa; margin-bottom: 4px;">DISPATCH ORIGIN (T=30m Hub)</div>
-        <div style="color: #cbd5e1;">${DISPATCH_ORIGIN.name}</div>
-        <div style="font-family: var(--font-mono); font-size: 10px; color: #94a3b8; margin-top: 4px;">
-          LAT: ${DISPATCH_ORIGIN.lat.toFixed(4)}, LNG: ${DISPATCH_ORIGIN.lng.toFixed(4)}
-        </div>
-      </div>
-    `);
-    markersLayer.addLayer(dispatchMarker);
+    });
+    dispatchMarker.on('click', () => {
+      onSelectItem({
+        type: 'facility',
+        data: {
+          id: 'origin_001',
+          name: DISPATCH_ORIGIN.name,
+          type: 'Dispatch Hub',
+          lat: DISPATCH_ORIGIN.lat,
+          lng: DISPATCH_ORIGIN.lng,
+          nodeId: 'node_dispatch_hub',
+        },
+      });
+    });
+    markers.addLayer(dispatchMarker);
     bounds.extend([DISPATCH_ORIGIN.lat, DISPATCH_ORIGIN.lng]);
 
-    // 2. Hotspots Markers
-    hotspots.forEach((hs) => {
-      if (typeof hs.lat === 'number' && typeof hs.lng === 'number') {
-        const riskPercent = Math.round((hs.riskScore || 0) * 100);
-        const marker = L.marker([hs.lat, hs.lng], {
-          icon: createMarkerIcon('hotspot', `${riskPercent}%`),
-        }).bindPopup(`
-          <div style="font-family: var(--font-sans); font-size: 12px; max-width: 260px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
-              <span style="font-weight: 800; color: #ef4444;">FLOOD HOTSPOT</span>
-              <span style="background: rgba(239,68,68,0.2); color:#fca5a5; padding: 2px 5px; border-radius:3px; font-weight:700; font-size:10px;">
-                RISK: ${(hs.riskScore || 0).toFixed(2)}
-              </span>
-            </div>
-            <div style="font-weight: 700; color: #f8fafc; font-size: 13px;">${hs.name}</div>
-            <div style="font-size: 11px; color: #cbd5e1; margin-top: 6px;">
-              <strong>Risk Factors:</strong>
-              <ul style="padding-left: 14px; margin-top: 2px;">
-                ${(hs.reasons || []).map((r) => `<li>${r}</li>`).join('')}
-              </ul>
-            </div>
-            ${
-              hs.floodedEdgeIds?.length
-                ? `<div style="margin-top: 6px; font-family: var(--font-mono); font-size: 10px; color: #94a3b8;">
-                    Flooded Edges: ${hs.floodedEdgeIds.join(', ')}
-                   </div>`
-                : ''
-            }
-          </div>
-        `);
+    // 3. Flood Extent Inundation Zones (Around Hotspots) - Dynamically scaled by Replay Storm Hour
+    const hourly = rainfall?.hourlyMm || [5, 10, 20, 35, 35, 20];
+    const totalMm = rainfall?.totalMm || 125;
+    const cumulativeMm = hourly.slice(0, replayHour || 6).reduce((a, b) => a + b, 0);
+    const rainfallRatio = Math.max(0.18, cumulativeMm / totalMm);
 
-        marker.on('click', () => onSelectHotspot(hs.id));
-        markersLayer.addLayer(marker);
-        bounds.extend([hs.lat, hs.lng]);
-      }
-    });
+    if (layerVisibility.floodZones) {
+      hotspots.forEach((hs) => {
+        if (typeof hs.lat === 'number' && typeof hs.lng === 'number') {
+          const baseRadius = 240 + (hs.riskScore || 0.5) * 380;
+          const radiusMeters = Math.round(baseRadius * (0.35 + 0.65 * rainfallRatio));
+          const opacity = Math.min(0.38, 0.12 + 0.26 * rainfallRatio);
 
-    // 3. Facilities Markers (Hospitals & Shelters)
+          const floodCircle = L.circle([hs.lat, hs.lng], {
+            radius: radiusMeters,
+            color: '#D65B4C',
+            weight: 1.5,
+            fillColor: '#D65B4C',
+            fillOpacity: opacity,
+            className: 'flood-radar-pulse',
+          }).bindTooltip(
+            `Inundation Pool (H${replayHour}): ${hs.name} &bull; ${(hs.riskScore * 100).toFixed(0)}% Risk &bull; Extent: ${radiusMeters}m`,
+            { sticky: true }
+          );
+
+          floodCircle.on('click', () => {
+            onSelectItem({ type: 'hotspot', data: hs });
+          });
+          floodZones.addLayer(floodCircle);
+        }
+      });
+    }
+
+    // 4. Hotspots Markers
+    if (layerVisibility.hotspots) {
+      hotspots.forEach((hs) => {
+        if (typeof hs.lat === 'number' && typeof hs.lng === 'number') {
+          const isSelected = selectedItem?.type === 'hotspot' && selectedItem?.data?.id === hs.id;
+          const scorePercent = Math.round((hs.riskScore || 0) * 100);
+          const marker = L.marker([hs.lat, hs.lng], {
+            icon: createMarkerIcon('hotspot', `${scorePercent}%`, isSelected),
+          });
+
+          marker.on('click', () => {
+            onSelectItem({ type: 'hotspot', data: hs });
+          });
+
+          markers.addLayer(marker);
+          bounds.extend([hs.lat, hs.lng]);
+        }
+      });
+    }
+
+    // 5. Critical Facilities & Verified Response Corridors
     const perFacMap = (simulation?.perFacility || []).reduce((acc, pf) => {
       acc[pf.facilityId] = pf;
       return acc;
     }, {});
 
-    facilities.forEach((fac) => {
-      if (typeof fac.lat === 'number' && typeof fac.lng === 'number') {
-        const simFac = perFacMap[fac.id];
-        const isHospital = fac.type === 'hospital';
-        const marker = L.marker([fac.lat, fac.lng], {
-          icon: createMarkerIcon(isHospital ? 'hospital' : 'shelter'),
-        }).bindPopup(`
-          <div style="font-family: var(--font-sans); font-size: 12px; max-width: 250px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
-              <span style="font-weight: 800; color: ${isHospital ? '#38bdf8' : '#34d399'};">
-                ${(fac.type || 'FACILITY').toUpperCase()}
-              </span>
-              <span style="font-family: var(--font-mono); font-size: 10px; color: #94a3b8;">
-                ${fac.id}
-              </span>
-            </div>
-            <div style="font-weight: 700; color: #f8fafc; font-size: 13px;">${fac.name}</div>
-            
-            ${
-              simFac
-                ? `<div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
-                      <span style="color:#94a3b8;">Baseline:</span>
-                      <strong style="color: ${simFac.reachableBefore ? '#34d399' : '#ef4444'};">
-                        ${simFac.reachableBefore ? `Reachable (${simFac.minutesBefore}m)` : 'SEVERED / UNREACHABLE'}
-                      </strong>
-                    </div>
-                    <div style="display:flex; justify-content:space-between;">
-                      <span style="color:#94a3b8;">With Proposed Plan:</span>
-                      <strong style="color: ${simFac.reachableAfter ? '#34d399' : '#ef4444'};">
-                        ${simFac.reachableAfter ? `Reachable (${simFac.minutesAfter}m)` : 'SEVERED / UNREACHABLE'}
-                      </strong>
-                    </div>
-                   </div>`
-                : ''
-            }
-          </div>
-        `);
+    if (layerVisibility.facilities) {
+      facilities.forEach((fac) => {
+        if (typeof fac.lat === 'number' && typeof fac.lng === 'number') {
+          const simFac = perFacMap[fac.id];
+          const isHospital = fac.type === 'hospital';
+          const isSelected = selectedItem?.type === 'facility' && selectedItem?.data?.id === fac.id;
 
-        markersLayer.addLayer(marker);
-        bounds.extend([fac.lat, fac.lng]);
-      }
-    });
+          // Draw Verified Green Response Pathway if reachable
+          if (layerVisibility.routes && simFac?.reachableAfter) {
+            const corridor = L.polyline(
+              [
+                [DISPATCH_ORIGIN.lat, DISPATCH_ORIGIN.lng],
+                [fac.lat, fac.lng],
+              ],
+              {
+                color: '#34D399',
+                weight: 2.5,
+                opacity: 0.75,
+                className: 'animated-route-flow',
+              }
+            ).bindTooltip(`Emergency Corridor: Hub &rarr; ${fac.name} (${simFac.minutesAfter} min)`, { sticky: true });
 
-    // Fit bounds if valid coordinates exist
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+            corridor.on('click', () => {
+              onSelectItem({
+                type: 'route',
+                data: {
+                  targetFacility: fac.name,
+                  facilityId: fac.id,
+                  type: fac.type,
+                  transitMinutes: simFac.minutesAfter,
+                  baselineMinutes: simFac.minutesBefore,
+                  status: 'Reachable via Protected Corridor',
+                },
+              });
+            });
+
+            routes.addLayer(corridor);
+          }
+
+          const marker = L.marker([fac.lat, fac.lng], {
+            icon: createMarkerIcon(isHospital ? 'hospital' : 'shelter', '', isSelected),
+          });
+
+          marker.on('click', () => {
+            onSelectItem({ type: 'facility', data: fac });
+          });
+
+          markers.addLayer(marker);
+          bounds.extend([fac.lat, fac.lng]);
+        }
+      });
     }
-  }, [facilities, hotspots, simulation, viewMode, onSelectHotspot]);
+  }, [facilities, hotspots, simulation, bbox, selectedItem, layerVisibility, viewMode, onSelectItem, replayHour, rainfall]);
+
+  // Smooth camera auto-focus when selectedItem changes
+  useEffect(() => {
+    if (!selectedItem || !mapInstanceRef.current || viewMode !== 'map') return;
+    const data = selectedItem.data;
+    if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+      mapInstanceRef.current.flyTo([data.lat, data.lng], 15.5, {
+        duration: 0.85,
+        easeLinearity: 0.25,
+      });
+    }
+  }, [selectedItem, viewMode]);
+
+  const handleFocusPreset = (preset) => {
+    setIsFocusMenuOpen(false);
+    if (!mapInstanceRef.current) return;
+
+    if (preset === 'overview') {
+      mapInstanceRef.current.flyTo([12.945, 77.70], 13, { duration: 0.85 });
+    } else if (preset === 'ecospace') {
+      mapInstanceRef.current.flyTo([12.9260, 77.6830], 15.5, { duration: 0.85 });
+    } else if (preset === 'rainbow') {
+      mapInstanceRef.current.flyTo([12.9110, 77.6795], 15.5, { duration: 0.85 });
+    } else if (preset === 'sakra') {
+      mapInstanceRef.current.flyTo([12.9255, 77.6845], 16, { duration: 0.85 });
+    } else if (preset === 'manipal') {
+      mapInstanceRef.current.flyTo([12.9572, 77.7391], 15.5, { duration: 0.85 });
+    }
+  };
 
   return (
-    <div className="ops-card" style={{ height: '480px', position: 'relative' }}>
-      <div className="ops-card-header">
-        <div className="ops-card-title">
-          <Layers size={16} color="#38bdf8" />
-          <span>Spatial Operations & Risk Geometry</span>
-        </div>
+    <div className="map-viewport">
+      {/* Map Atmospheric Haze Overlay (Cinematic Depth) */}
+      <div className="map-haze-overlay" />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Button
-            variant={viewMode === 'map' ? 'primary' : 'outline'}
-            onClick={() => setViewMode('map')}
-            icon={MapPin}
-          >
-            Map
-          </Button>
-          <Button
-            variant={viewMode === 'list' ? 'primary' : 'outline'}
-            onClick={() => setViewMode('list')}
-            icon={ListFilter}
-          >
-            Data List
-          </Button>
-        </div>
-      </div>
-
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {viewMode === 'map' ? (
-          <div ref={mapContainerRef} style={{ width: '100%', height: '100%', background: '#090d16' }} />
-        ) : (
-          /* Honest List Fallback if Map Tiles or Network restricted */
-          <div
-            style={{
-              padding: '1rem',
-              height: '100%',
-              overflowY: 'auto',
-              background: '#090d16',
-              fontSize: '0.8rem',
-            }}
-          >
-            <div
-              style={{
-                padding: '0.5rem 0.75rem',
-                marginBottom: '0.75rem',
-                background: 'rgba(56, 189, 248, 0.1)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
-                borderRadius: '4px',
-                color: '#7dd3fc',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-              }}
-            >
-              <Navigation size={16} />
-              <span>
-                <strong>Spatial Geometry Inventory:</strong> Authentic scenario coordinates for pilot area bounding box [12.90, 77.65] to [12.99, 77.76].
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <h4 style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', marginBottom: '0.5rem', fontWeight: 700 }}>
-                  Flood Hotspots ({hotspots.length})
-                </h4>
-                {hotspots.map((hs) => (
-                  <div
-                    key={hs.id}
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '4px',
-                      padding: '0.5rem',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 700, color: '#f8fafc' }}>{hs.name}</span>
-                      <span className="font-mono" style={{ color: '#ef4444' }}>
-                        Risk: {(hs.riskScore || 0).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="font-mono" style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                      LAT: {hs.lat}, LNG: {hs.lng}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#cbd5e1', marginTop: '2px' }}>
-                      {hs.reasons?.join(' &bull; ')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div>
-                <h4 style={{ fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '0.5rem', fontWeight: 700 }}>
-                  Critical Facilities ({facilities.length})
-                </h4>
-                {facilities.map((fac) => (
-                  <div
-                    key={fac.id}
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '4px',
-                      padding: '0.5rem',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 700, color: '#f8fafc' }}>{fac.name}</span>
-                      <Badge variant={fac.type === 'hospital' ? 'info' : 'success'}>
-                        {fac.type}
-                      </Badge>
-                    </div>
-                    <div className="font-mono" style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                      ID: {fac.id} | Node: {fac.nodeId} | ({fac.lat}, {fac.lng})
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+      {/* CARTO Basemap Key Setup Notice */}
+      {showKeySetupNotice && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '64px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 500,
+            background: 'rgba(17, 26, 35, 0.95)',
+            border: '1px solid var(--color-warning-border)',
+            borderRadius: '8px',
+            padding: '0.75rem 1.25rem',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.85rem',
+            maxWidth: '580px',
+            width: 'calc(100% - 40px)',
+            fontSize: '0.825rem',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <AlertTriangle size={20} color="var(--color-amber)" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <strong style={{ color: 'var(--color-amber)', display: 'block', fontSize: '0.85rem', marginBottom: '2px' }}>
+              CARTO Basemap Key Setup Required
+            </strong>
+            <span style={{ color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+              {hasTileError
+                ? 'Tile request failed. Replace the placeholder in frontend/.env with your valid key and restart the dev server.'
+                : 'Configure VITE_CARTO_API_KEY in frontend/.env with your regenerated key and restart the frontend to load authenticated CARTO tiles.'}
+            </span>
           </div>
-        )}
-
-        {/* Floating Map Legend */}
-        {viewMode === 'map' && (
-          <div
+          <button
+            type="button"
+            onClick={() => setHasDismissedKeyWarning(true)}
             style={{
-              position: 'absolute',
-              bottom: '12px',
-              left: '12px',
-              zIndex: 500,
-              background: 'rgba(11, 15, 25, 0.88)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              backdropFilter: 'blur(6px)',
-              fontSize: '0.7rem',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '4px',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.5)',
             }}
+            title="Dismiss notice"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
-              <span style={{ color: '#cbd5e1' }}>Hotspot</span>
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Simulated Radar Sweep Overlay when Radar Layer is Enabled */}
+      {layerVisibility.radarOverlay && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '600px',
+            height: '600px',
+            borderRadius: '50%',
+            border: '1px solid rgba(111, 169, 184, 0.2)',
+            pointerEvents: 'none',
+            zIndex: 360,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              background: 'conic-gradient(from 0deg at 50% 50%, rgba(111, 169, 184, 0.15) 0deg, transparent 60deg, transparent 360deg)',
+              animation: 'radarSweep 4s linear infinite',
+            }}
+          />
+        </div>
+      )}
+
+      {viewMode === 'map' ? (
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+      ) : (
+        /* Fallback List View */
+        <div style={{ height: '100%', overflowY: 'auto', padding: '1.5rem', background: 'var(--color-obsidian)', position: 'relative', zIndex: 400 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div>
+              <h3 style={{ color: 'var(--color-vermilion)', marginBottom: '0.75rem', fontSize: '1rem' }}>
+                Hotspots ({hotspots.length})
+              </h3>
+              {hotspots.map((h) => (
+                <div
+                  key={h.id}
+                  onClick={() => onSelectItem({ type: 'hotspot', data: h })}
+                  style={{
+                    background: 'var(--color-deep-slate)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    marginBottom: '0.5rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{h.name}</div>
+                  <div className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--color-water)' }}>
+                    Risk: {(h.riskScore * 100).toFixed(0)}% &bull; ({h.lat}, {h.lng})
+                  </div>
+                </div>
+              ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#0284c7' }} />
-              <span style={{ color: '#cbd5e1' }}>Hospital</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10b981' }} />
-              <span style={{ color: '#cbd5e1' }}>Shelter</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#8b5cf6' }} />
-              <span style={{ color: '#cbd5e1' }}>Dispatch Hub</span>
+
+            <div>
+              <h3 style={{ color: 'var(--color-water)', marginBottom: '0.75rem', fontSize: '1rem' }}>
+                Facilities ({facilities.length})
+              </h3>
+              {facilities.map((f) => (
+                <div
+                  key={f.id}
+                  onClick={() => onSelectItem({ type: 'facility', data: f })}
+                  style={{
+                    background: 'var(--color-deep-slate)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    marginBottom: '0.5rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{f.name}</div>
+                  <div className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {f.type?.toUpperCase()} &bull; ({f.lat}, {f.lng})
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Floating Glass Tactical Controls Dock (Top Left) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '14px',
+          left: '14px',
+          zIndex: 400,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}
+      >
+        {/* Layer Manager */}
+        <button
+          type="button"
+          onClick={() => {
+            setIsLayerMenuOpen(!isLayerMenuOpen);
+            setIsFocusMenuOpen(false);
+          }}
+          className={`map-glass-btn ${isLayerMenuOpen ? 'active' : ''}`}
+        >
+          <Layers size={14} color="var(--color-water)" />
+          <span>Layers ({Object.values(layerVisibility).filter(Boolean).length})</span>
+        </button>
+
+        {/* Camera Focus Presets */}
+        <button
+          type="button"
+          onClick={() => {
+            setIsFocusMenuOpen(!isFocusMenuOpen);
+            setIsLayerMenuOpen(false);
+          }}
+          className={`map-glass-btn ${isFocusMenuOpen ? 'active' : ''}`}
+        >
+          <Crosshair size={14} color="var(--color-teal)" />
+          <span>Camera Presets</span>
+        </button>
+
+        {/* Radar Toggle */}
+        <button
+          type="button"
+          onClick={() =>
+            setLayerVisibility((prev) => ({ ...prev, radarOverlay: !prev.radarOverlay }))
+          }
+          className={`map-glass-btn ${layerVisibility.radarOverlay ? 'active' : ''}`}
+          title="Toggle KSNDMC Doppler Radar sweep simulation"
+        >
+          <Wind size={14} color={layerVisibility.radarOverlay ? 'var(--color-water)' : 'var(--text-muted)'} />
+          <span>Radar Sweep</span>
+        </button>
+
+        {/* Map / List Toggle */}
+        <button
+          type="button"
+          onClick={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}
+          className="map-glass-btn"
+        >
+          {viewMode === 'map' ? 'List View' : 'Map View'}
+        </button>
+      </div>
+
+      {/* Layer Toggle Dropdown */}
+      {isLayerMenuOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '52px',
+            left: '14px',
+            zIndex: 450,
+            background: 'var(--color-deep-slate)',
+            border: '1px solid var(--border-medium)',
+            borderRadius: '8px',
+            padding: '0.85rem',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
+            width: '230px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.55rem',
+            fontSize: '0.85rem',
+          }}
+        >
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+            Geospatial Layer Overlays
+          </div>
+
+          {[
+            { key: 'floodZones', label: 'Flood Extent Inundation', color: '#D65B4C' },
+            { key: 'routes', label: 'Verified Response Corridors', color: '#34D399' },
+            { key: 'hotspots', label: 'Vulnerable Hotspot Pins', color: '#E4AA55' },
+            { key: 'facilities', label: 'Hospital & Shelter Assets', color: '#6FA9B8' },
+            { key: 'watershed', label: 'Mahadevapura Basin Scope', color: '#3C7F82' },
+          ].map((layer) => (
+            <label
+              key={layer.key}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: layer.color }} />
+                <span>{layer.label}</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layerVisibility[layer.key]}
+                onChange={(e) =>
+                  setLayerVisibility((prev) => ({ ...prev, [layer.key]: e.target.checked }))
+                }
+              />
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Focus Presets Dropdown */}
+      {isFocusMenuOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '52px',
+            left: '140px',
+            zIndex: 450,
+            background: 'var(--color-deep-slate)',
+            border: '1px solid var(--border-medium)',
+            borderRadius: '8px',
+            padding: '0.75rem',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
+            width: '220px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.4rem',
+            fontSize: '0.85rem',
+          }}
+        >
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+            Quick Camera Presets
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleFocusPreset('overview')}
+            className="ops-btn ops-btn-outline"
+            style={{ justifyContent: 'flex-start', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+          >
+            Overview (Mahadevapura)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFocusPreset('ecospace')}
+            className="ops-btn ops-btn-outline"
+            style={{ justifyContent: 'flex-start', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+          >
+            Hotspot: ORR EcoSpace Sump
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFocusPreset('rainbow')}
+            className="ops-btn ops-btn-outline"
+            style={{ justifyContent: 'flex-start', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+          >
+            Hotspot: Rainbow Drive Culvert
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFocusPreset('sakra')}
+            className="ops-btn ops-btn-outline"
+            style={{ justifyContent: 'flex-start', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+          >
+            Facility: Sakra World Hospital
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFocusPreset('manipal')}
+            className="ops-btn ops-btn-outline"
+            style={{ justifyContent: 'flex-start', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+          >
+            Facility: Manipal Hospital Varthur
+          </button>
+        </div>
+      )}
+
+      {/* Floating Tactical Compass / True North (Bottom Left) */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '16px',
+          left: '16px',
+          zIndex: 400,
+          background: 'rgba(17, 26, 35, 0.9)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '6px',
+          padding: '6px 12px',
+          backdropFilter: 'blur(10px)',
+          fontSize: '0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => handleFocusPreset('overview')}
+          title="Reset Camera to True North & Basin Overview"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--color-water)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: 0,
+            fontSize: '0.75rem',
+            fontWeight: 700,
+          }}
+        >
+          <Compass size={15} />
+          <span>N 0&deg; TRUE</span>
+        </button>
+        <div style={{ width: '1px', height: '14px', background: 'var(--border-subtle)' }} />
+        <span className="font-mono" style={{ color: 'var(--text-muted)' }}>
+          SCOPE: MAHADEVAPURA 12.90&ndash;12.99N
+        </span>
+      </div>
+
+      {/* Tactical Map Legend (Bottom Right) */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '16px',
+          right: '16px',
+          zIndex: 400,
+          background: 'rgba(17, 26, 35, 0.9)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '6px',
+          padding: '6px 14px',
+          backdropFilter: 'blur(10px)',
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#D65B4C' }} />
+          <span>Flood Hotspot</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#6FA9B8' }} />
+          <span>Hospital</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#34D399' }} />
+          <span>Shelter</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ width: '16px', height: '2px', background: '#34D399', borderTop: '2px dashed #34D399' }} />
+          <span>Verified Corridor</span>
+        </div>
       </div>
     </div>
   );
-}
+});

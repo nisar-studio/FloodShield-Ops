@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Flame, MapPin, ChevronRight, Waves } from 'lucide-react';
+import { Flame, Waves } from 'lucide-react';
 import { Badge } from './ui/Badge';
 
 export function HotspotList({
@@ -12,15 +12,15 @@ export function HotspotList({
       <div className="ops-card">
         <div className="ops-card-header">
           <div className="ops-card-title">
-            <Flame size={16} color="#ef4444" />
+            <Flame size={18} color="var(--color-danger)" />
             <span>Flood Risk Hotspots</span>
           </div>
-          <Badge variant="neutral">0 DETECTED</Badge>
+          <Badge variant="neutral">0 Detected</Badge>
         </div>
-        <div className="ops-card-body" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-          <Waves size={28} color="#64748b" style={{ margin: '0 auto 0.75rem auto' }} />
-          <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-            No critical flood hotspots identified for current precipitation threshold.
+        <div className="ops-card-body" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+          <Waves size={32} color="var(--text-muted)" style={{ margin: '0 auto 1rem auto' }} />
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+            No critical flood hotspots flagged for this precipitation profile.
           </div>
         </div>
       </div>
@@ -31,13 +31,13 @@ export function HotspotList({
     <div className="ops-card">
       <div className="ops-card-header">
         <div className="ops-card-title">
-          <Flame size={16} color="#ef4444" />
-          <span>Vulnerable Hotspots & Risk Drivers</span>
+          <Flame size={20} color="var(--color-danger)" />
+          <span>Vulnerable Flood Hotspots</span>
         </div>
-        <Badge variant="danger">{hotspots.length} ACTIVE</Badge>
+        <Badge variant="danger">{hotspots.length} Active</Badge>
       </div>
 
-      <div className="ops-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+      <div className="ops-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {hotspots.map((hs) => {
           const isSelected = selectedHotspotId === hs.id;
           const score = hs.riskScore || 0;
@@ -52,43 +52,39 @@ export function HotspotList({
               key={hs.id}
               onClick={() => onSelectHotspot(hs.id)}
               style={{
-                background: isSelected ? 'rgba(239, 68, 68, 0.12)' : 'rgba(15, 23, 42, 0.65)',
+                background: isSelected ? 'var(--color-danger-bg)' : 'var(--bg-surface-elevated)',
                 border: `1px solid ${
-                  isSelected ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.08)'
+                  isSelected ? 'var(--color-danger-border)' : 'var(--border-subtle)'
                 }`,
-                borderRadius: '6px',
-                padding: '0.75rem',
+                borderRadius: '8px',
+                padding: '1.1rem',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.825rem' }}>
-                      {hs.name}
-                    </span>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem' }}>
+                    {hs.name}
                   </div>
-                  <span className="font-mono" style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                  <div className="font-mono" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                     {hs.id} &bull; ({hs.lat?.toFixed(4)}, {hs.lng?.toFixed(4)})
-                  </span>
+                  </div>
                 </div>
 
-                <div style={{ textAlign: 'right' }}>
-                  <Badge variant={riskVariant}>
-                    RISK {scorePercent}%
-                  </Badge>
-                </div>
+                <Badge variant={riskVariant}>
+                  Risk {scorePercent}%
+                </Badge>
               </div>
 
-              {/* Risk Score Meter */}
+              {/* Progress Line */}
               <div
                 style={{
-                  height: '4px',
+                  height: '5px',
                   width: '100%',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  borderRadius: '2px',
-                  marginTop: '0.4rem',
+                  background: 'var(--bg-surface)',
+                  borderRadius: '3px',
+                  marginTop: '0.75rem',
                   overflow: 'hidden',
                 }}
               >
@@ -96,29 +92,26 @@ export function HotspotList({
                   style={{
                     height: '100%',
                     width: `${scorePercent}%`,
-                    background: score >= 0.8 ? '#ef4444' : score >= 0.6 ? '#f59e0b' : '#38bdf8',
-                    borderRadius: '2px',
+                    background: score >= 0.8 ? 'var(--color-danger)' : score >= 0.6 ? 'var(--color-warning)' : 'var(--color-info)',
+                    borderRadius: '3px',
                   }}
                 />
               </div>
 
               {/* Reasons */}
               {Array.isArray(hs.reasons) && hs.reasons.length > 0 && (
-                <div style={{ marginTop: '0.45rem', fontSize: '0.72rem', color: '#cbd5e1' }}>
-                  <div style={{ color: '#94a3b8', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Contributing Factors:
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '2px' }}>
+                <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '4px' }}>
                     {hs.reasons.map((reason, rIdx) => (
                       <span
                         key={rIdx}
                         style={{
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          border: '1px solid rgba(255, 255, 255, 0.06)',
-                          borderRadius: '3px',
-                          padding: '1px 5px',
-                          fontSize: '0.68rem',
-                          color: '#e2e8f0',
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          fontSize: '0.85rem',
+                          color: 'var(--text-primary)',
                         }}
                       >
                         {reason}
@@ -128,9 +121,9 @@ export function HotspotList({
                 </div>
               )}
 
-              {/* Affected Edges */}
+              {/* Flooded Edges */}
               {Array.isArray(hs.floodedEdgeIds) && hs.floodedEdgeIds.length > 0 && (
-                <div style={{ marginTop: '0.4rem', fontSize: '0.68rem', color: '#64748b' }}>
+                <div style={{ marginTop: '0.65rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   <span className="font-mono">Flooded Edges: {hs.floodedEdgeIds.join(', ')}</span>
                 </div>
               )}

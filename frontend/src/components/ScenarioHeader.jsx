@@ -1,14 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, 
   CloudRain, 
-  Activity, 
   RefreshCw, 
-  Database, 
-  Server, 
+  FileDown, 
   AlertTriangle,
-  Radio,
-  SlidersHorizontal
+  Sun,
+  Moon,
+  Clock
 } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
@@ -16,22 +15,37 @@ import { Button } from './ui/Button';
 export function ScenarioHeader({
   scenario,
   connectionStatus,
-  dataSource, // 'live' | 'replay_pass' | 'replay_fail'
+  dataSource,
   onDataSourceChange,
   onTriggerRun,
   isLoadingRun,
+  currentTheme,
+  onThemeChange,
+  onExportReport,
 }) {
   const rainfall = scenario?.rainfall || { totalMm: 0, durationHours: 0, hourlyMm: [] };
-  const hourly = rainfall.hourlyMm || [];
-  const maxRain = Math.max(...hourly, 1);
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const timeStringIST = currentTime.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 
   return (
     <header
       style={{
-        background: 'rgba(17, 24, 39, 0.95)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        padding: '0.85rem 1.25rem',
-        backdropFilter: 'blur(8px)',
+        background: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border-subtle)',
+        padding: '1rem 2rem',
         position: 'sticky',
         top: 0,
         zIndex: 1000,
@@ -43,250 +57,233 @@ export function ScenarioHeader({
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1rem',
+          gap: '1.25rem',
           maxWidth: '1720px',
           margin: '0 auto',
         }}
       >
-        {/* Brand & Mission Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        {/* Brand & City Pilot Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div
             style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
+              width: '44px',
+              height: '44px',
+              borderRadius: '10px',
+              background: 'var(--text-primary)',
+              color: 'var(--bg-app)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 12px rgba(2, 132, 199, 0.4)',
             }}
           >
-            <ShieldAlert size={22} color="#ffffff" />
+            <ShieldAlert size={26} />
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.04em', color: '#f8fafc' }}>
-                FLOODSHIELD OPS
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
+                FloodShield Ops
               </span>
-              <span
-                style={{
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  color: '#38bdf8',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                }}
-              >
-                DECISION-SUPPORT &bull; SANDBOX
-              </span>
+              <Badge variant="neutral">
+                Mahadevapura Pilot
+              </Badge>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span>Bengaluru Command Center</span>
-              <span>&bull;</span>
-              <span className="font-mono" style={{ color: '#cbd5e1' }}>Mahadevapura Pilot Area</span>
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '1px' }}>
+              Autonomous Pre-Flood Operations & Reachability Verification
             </div>
           </div>
         </div>
 
-        {/* Center: Scenario & Meteorological Telemetry */}
+        {/* Center: Live Ops Clock & Telemetry */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '1.25rem',
-            background: 'rgba(11, 15, 25, 0.6)',
-            padding: '0.4rem 0.85rem',
-            borderRadius: '6px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            gap: '1.5rem',
+            background: 'var(--bg-surface-elevated)',
+            padding: '0.55rem 1.25rem',
+            borderRadius: '8px',
+            border: '1px solid var(--border-subtle)',
           }}
         >
+          {/* Live Clock */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Clock size={18} color="var(--color-info)" />
+            <div>
+              <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Operations Time (IST)
+              </div>
+              <div className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {timeStringIST} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>UTC+5:30</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ width: '1px', height: '32px', background: 'var(--border-subtle)' }} />
+
           {/* Scenario Info */}
           <div>
-            <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-              Active Scenario
+            <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+              Scenario Profile
             </div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span>{scenario?.scenarioId || 'No Scenario'}</span>
+            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>{scenario?.scenarioId || 'blr-2022-09-replay'}</span>
               <Badge variant={scenario?.mode === 'live' ? 'danger' : 'info'}>
-                {scenario?.mode === 'live' ? 'LIVE RADAR' : 'REPLAY'}
+                {scenario?.mode === 'live' ? 'Live Radar' : 'Replay'}
               </Badge>
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,0.08)' }} />
+          <div style={{ width: '1px', height: '32px', background: 'var(--border-subtle)' }} />
 
-          {/* Rainfall Stats */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <CloudRain size={18} color="#38bdf8" />
+          {/* Precipitation Total */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <CloudRain size={20} color="var(--color-info)" />
             <div>
-              <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-                Precipitation Event
+              <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Precipitation
               </div>
-              <div className="font-mono" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#38bdf8' }}>
-                {rainfall.totalMm} mm <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>/ {rainfall.durationHours}h</span>
+              <div className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {rainfall.totalMm} mm <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>({rainfall.durationHours}h)</span>
               </div>
             </div>
-
-            {/* Sparkline of hourly rain */}
-            {hourly.length > 0 && (
-              <div
-                title={`Hourly rainfall distribution: ${hourly.join(', ')} mm`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  gap: '2px',
-                  height: '22px',
-                  padding: '2px 4px',
-                  background: 'rgba(0,0,0,0.3)',
-                  borderRadius: '3px',
-                }}
-              >
-                {hourly.map((val, idx) => {
-                  const heightPercent = Math.max((val / maxRain) * 100, 15);
-                  const isPeak = val === maxRain;
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        width: '4px',
-                        height: `${heightPercent}%`,
-                        background: isPeak ? '#f59e0b' : '#38bdf8',
-                        borderRadius: '1px',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Right: Source Mode, Backend Health & Controls */}
+        {/* Right: Actions & Theme Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Data Source Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>Source:</span>
-            <select
-              value={dataSource}
-              onChange={(e) => onDataSourceChange(e.target.value)}
-              style={{
-                background: '#0f172a',
-                color: '#f8fafc',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '4px',
-                padding: '0.35rem 0.5rem',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="replay_pass">Replay Fixture: Verified Pass (Plan 001)</option>
-              <option value="replay_fail">Replay Fixture: Verification Fail / Replan (Plan 002)</option>
-              <option value="live">Live Backend API (http://localhost:3000)</option>
-            </select>
-          </div>
+          {/* Light / Dark Mode Toggle */}
+          <button
+            type="button"
+            className="ops-btn ops-btn-outline"
+            onClick={() => onThemeChange(currentTheme === 'dark' ? 'light' : 'dark')}
+            title="Toggle theme mode"
+            style={{ padding: '0.65rem 0.85rem' }}
+          >
+            {currentTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
 
-          {/* Connection Status Indicator */}
+          {/* Data Source Selector */}
+          <select
+            value={dataSource}
+            onChange={(e) => onDataSourceChange(e.target.value)}
+            style={{
+              background: 'var(--bg-surface-elevated)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: '6px',
+              padding: '0.65rem 0.85rem',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="replay_pass">Replay: Verified Pass (Plan 001)</option>
+            <option value="replay_fail">Replay: Verification Fail (Plan 002)</option>
+            <option value="live">Live Backend API (port 3000)</option>
+          </select>
+
+          {/* Connection Pill */}
           <div
-            title={connectionStatus.message || 'Connection Status'}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.3rem 0.6rem',
-              borderRadius: '4px',
-              fontSize: '0.72rem',
+              gap: '0.5rem',
+              padding: '0.55rem 0.85rem',
+              borderRadius: '6px',
+              fontSize: '0.85rem',
               fontWeight: 600,
               background:
                 dataSource !== 'live'
-                  ? 'rgba(100, 116, 139, 0.15)'
+                  ? 'var(--bg-surface-elevated)'
                   : connectionStatus.connected
-                  ? 'rgba(16, 185, 129, 0.15)'
-                  : 'rgba(239, 68, 68, 0.15)',
+                  ? 'var(--color-success-bg)'
+                  : 'var(--color-danger-bg)',
               border: `1px solid ${
                 dataSource !== 'live'
-                  ? 'rgba(100, 116, 139, 0.3)'
+                  ? 'var(--border-subtle)'
                   : connectionStatus.connected
-                  ? 'rgba(16, 185, 129, 0.4)'
-                  : 'rgba(239, 68, 68, 0.4)'
+                  ? 'var(--color-success-border)'
+                  : 'var(--color-danger-border)'
               }`,
               color:
                 dataSource !== 'live'
-                  ? '#cbd5e1'
+                  ? 'var(--text-secondary)'
                   : connectionStatus.connected
-                  ? '#34d399'
-                  : '#f87171',
+                  ? 'var(--color-success)'
+                  : 'var(--color-danger)',
             }}
           >
             <span
+              className="live-beacon"
               style={{
-                width: '6px',
-                height: '6px',
+                width: '8px',
+                height: '8px',
                 borderRadius: '50%',
                 backgroundColor:
                   dataSource !== 'live'
-                    ? '#94a3b8'
+                    ? 'var(--text-muted)'
                     : connectionStatus.connected
-                    ? '#10b981'
-                    : '#ef4444',
-                boxShadow:
-                  connectionStatus.connected && dataSource === 'live'
-                    ? '0 0 6px #10b981'
-                    : 'none',
+                    ? 'var(--color-success)'
+                    : 'var(--color-danger)',
               }}
             />
             <span>
               {dataSource !== 'live'
-                ? 'FIXTURE REPLAY'
+                ? 'Replay Fixture'
                 : connectionStatus.connected
-                ? 'BACKEND ONLINE'
-                : 'OFFLINE / DISCONNECTED'}
+                ? 'Backend Online'
+                : 'Disconnected'}
             </span>
           </div>
 
-          {/* Run / Refresh Button */}
+          {/* Export Report */}
+          <Button
+            variant="outline"
+            onClick={onExportReport}
+            icon={FileDown}
+          >
+            Export Dossier
+          </Button>
+
+          {/* Trigger Run */}
           <Button
             variant="primary"
             onClick={onTriggerRun}
             loading={isLoadingRun}
             icon={RefreshCw}
           >
-            {dataSource === 'live' ? 'Trigger Run' : 'Re-Run Scenario'}
+            {dataSource === 'live' ? 'Trigger Run' : 'Simulate Run'}
           </Button>
         </div>
       </div>
 
-      {/* Prominent Label Banner for Replay Mode (Honesty Rule) */}
+      {/* Honest Notice for Replay Mode */}
       {dataSource !== 'live' && (
         <div
           style={{
             maxWidth: '1720px',
-            margin: '0.5rem auto 0 auto',
-            padding: '0.3rem 0.75rem',
-            background: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '4px',
+            margin: '0.75rem auto 0 auto',
+            padding: '0.5rem 1rem',
+            background: 'var(--color-warning-bg)',
+            border: '1px solid var(--color-warning-border)',
+            borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            fontSize: '0.72rem',
-            color: '#fcd34d',
+            fontSize: '0.85rem',
+            color: 'var(--color-warning)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <AlertTriangle size={14} color="#f59e0b" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <AlertTriangle size={16} />
             <span>
-              <strong>OFFLINE REPLAY / FIXTURE MODE ACTIVE:</strong> Data shown is from deterministic test fixtures (Bengaluru Sep 2022 historical event). Not connected to live sensor telemetry.
+              <strong>OFFLINE REPLAY MODE:</strong> Displaying deterministic historical event data (Bengaluru 05-Sep-2022). Live radar is disconnected.
             </span>
           </div>
-          <span className="font-mono" style={{ fontSize: '0.68rem', color: '#fbbf24' }}>
-            Contract: AGENTS.md compliant
+          <span className="font-mono" style={{ fontSize: '0.8rem' }}>
+            Contract: AGENTS.md
           </span>
         </div>
       )}

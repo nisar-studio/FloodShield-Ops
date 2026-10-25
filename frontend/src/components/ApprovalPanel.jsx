@@ -6,8 +6,7 @@ import {
   AlertTriangle, 
   Terminal, 
   ShieldCheck,
-  UserCheck,
-  Info
+  UserCheck
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -32,14 +31,13 @@ export function ApprovalPanel({
     approvalResult?.status === 'approved' ||
     approvalResult?.status === 'executed_sandbox';
 
-  // Strict check on why approval is locked
   let lockReason = '';
   if (!plan) {
     lockReason = 'No mitigation plan has been proposed yet.';
   } else if (!simulation) {
     lockReason = 'Plan has not undergone deterministic simulation.';
   } else if (!simulation.passed) {
-    lockReason = `Deterministic verification failed (Score: ${(simulation.planScore * 100).toFixed(1)}% < Threshold: ${(simulation.threshold * 100).toFixed(1)}%). Replan cycle active.`;
+    lockReason = `Deterministic verification failed (Score: ${(simulation.planScore * 100).toFixed(1)}% < Threshold: ${(simulation.threshold * 100).toFixed(1)}%). Replan cycle is active.`;
   } else if (isAlreadyApproved) {
     lockReason = 'Plan has already received human operator authorization and dispatched to sandbox.';
   }
@@ -57,11 +55,11 @@ export function ApprovalPanel({
       <div className="ops-card-header">
         <div className="ops-card-title">
           {isAlreadyApproved ? (
-            <CheckCircle2 size={16} color="#10b981" />
+            <CheckCircle2 size={20} color="var(--color-success)" />
           ) : isVerified ? (
-            <Unlock size={16} color="#f59e0b" />
+            <Unlock size={20} color="var(--color-warning)" />
           ) : (
-            <Lock size={16} color="#64748b" />
+            <Lock size={20} color="var(--text-muted)" />
           )}
           <span>Human-in-the-Loop Operator Gate</span>
         </div>
@@ -76,94 +74,93 @@ export function ApprovalPanel({
           }
         >
           {isAlreadyApproved
-            ? 'AUTHORIZED & DISPATCHED'
+            ? 'Authorized & Dispatched'
             : isVerified
-            ? 'AWAITING OPERATOR'
-            : 'LOCKED'}
+            ? 'Ready for Review'
+            : 'Locked'}
         </Badge>
       </div>
 
-      <div className="ops-card-body">
-        {/* Safety Gate Explanation */}
-        <div style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: '1.4', marginBottom: '0.85rem' }}>
-          Strict safety policy requires explicit human confirmation before any AI-generated mitigation can be dispatched.
+      <div className="ops-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+          Mandatory safety policy: No AI-generated recommendation reaches execution status without prior verification and explicit human operator sign-off.
         </div>
 
-        {/* Status Box */}
+        {/* Status Notices */}
         {isAlreadyApproved ? (
           <div
             style={{
-              padding: '0.75rem',
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '6px',
-              color: '#6ee7b7',
-              fontSize: '0.78rem',
+              padding: '1rem 1.25rem',
+              background: 'var(--color-success-bg)',
+              border: '1px solid var(--color-success-border)',
+              borderRadius: '8px',
+              color: 'var(--color-success)',
+              fontSize: '0.95rem',
               display: 'flex',
-              gap: '0.5rem',
+              gap: '0.75rem',
               alignItems: 'center',
             }}
           >
-            <ShieldCheck size={20} color="#10b981" style={{ flexShrink: 0 }} />
+            <ShieldCheck size={24} style={{ flexShrink: 0 }} />
             <div>
-              <div style={{ fontWeight: 700, color: '#34d399' }}>
-                Plan {planId} Authorized by Operator
+              <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+                Plan {planId} Authorized & Dispatched
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#a7f3d0', marginTop: '2px' }}>
-                Execution state: <code className="font-mono">{approvalResult?.status || plan?.status}</code> &bull; Dispatched to sandbox simulator.
+              <div style={{ fontSize: '0.85rem', marginTop: '2px', opacity: 0.9 }}>
+                Execution state: <code className="font-mono">{approvalResult?.status || plan?.status}</code> &bull; Dispatched to sandbox environment.
               </div>
             </div>
           </div>
         ) : !isButtonEnabled ? (
           <div
             style={{
-              padding: '0.65rem 0.75rem',
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              borderRadius: '6px',
-              color: '#fca5a5',
-              fontSize: '0.75rem',
+              padding: '1rem 1.25rem',
+              background: 'var(--color-danger-bg)',
+              border: '1px solid var(--color-danger-border)',
+              borderRadius: '8px',
+              color: 'var(--color-danger)',
+              fontSize: '0.95rem',
               display: 'flex',
-              gap: '0.5rem',
+              gap: '0.75rem',
               alignItems: 'flex-start',
             }}
           >
-            <Lock size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <Lock size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
             <div>
               <strong>Approval Gate Locked:</strong>
-              <div style={{ marginTop: '2px', color: '#fecaca' }}>{lockReason}</div>
+              <div style={{ marginTop: '4px', lineHeight: '1.4' }}>{lockReason}</div>
             </div>
           </div>
         ) : (
           <div
             style={{
-              padding: '0.65rem 0.75rem',
-              background: 'rgba(245, 158, 11, 0.1)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              borderRadius: '6px',
-              color: '#fcd34d',
-              fontSize: '0.75rem',
+              padding: '1rem 1.25rem',
+              background: 'var(--color-warning-bg)',
+              border: '1px solid var(--color-warning-border)',
+              borderRadius: '8px',
+              color: 'var(--color-warning)',
+              fontSize: '0.95rem',
               display: 'flex',
-              gap: '0.5rem',
+              gap: '0.75rem',
               alignItems: 'center',
             }}
           >
-            <Unlock size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
+            <Unlock size={22} style={{ flexShrink: 0 }} />
             <div>
-              <strong>Ready for Operator Review:</strong> Deterministic verification passed (Reachability: {(simulation.planScore * 100).toFixed(1)}%).
+              <strong>Verified & Ready for Authorization:</strong> Deterministic simulation cleared target threshold ({(simulation.planScore * 100).toFixed(1)}%).
             </div>
           </div>
         )}
 
         {/* Action Button */}
-        <div style={{ marginTop: '0.85rem' }}>
+        <div>
           <Button
             variant={isAlreadyApproved ? 'outline' : isVerified ? 'success' : 'outline'}
             disabled={!isButtonEnabled}
             loading={isApproving}
             onClick={() => setIsModalOpen(true)}
             icon={isAlreadyApproved ? CheckCircle2 : UserCheck}
-            style={{ width: '100%', padding: '0.65rem' }}
+            style={{ width: '100%', padding: '0.85rem 1.25rem', fontSize: '1rem' }}
           >
             {isAlreadyApproved
               ? 'Plan Approved & Dispatched'
@@ -171,19 +168,17 @@ export function ApprovalPanel({
           </Button>
         </div>
 
-        {/* Non-destructive Sandbox Notice */}
         <div
           style={{
-            marginTop: '0.75rem',
-            fontSize: '0.68rem',
-            color: '#64748b',
+            fontSize: '0.85rem',
+            color: 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.35rem',
+            gap: '0.5rem',
           }}
         >
-          <Terminal size={12} color="#64748b" />
-          <span>Non-destructive testbed: No real physical road closures or emergency alerts dispatched.</span>
+          <Terminal size={16} />
+          <span>Non-destructive testbed: Actions are executed only inside the sandbox simulation.</span>
         </div>
       </div>
 
@@ -193,94 +188,90 @@ export function ApprovalPanel({
         onClose={() => setIsModalOpen(false)}
         title="Confirm Pre-Flood Mitigation Authorization"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.8rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontSize: '0.95rem' }}>
           <div
             style={{
-              padding: '0.75rem',
-              background: 'rgba(245, 158, 11, 0.1)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              borderRadius: '6px',
-              color: '#fcd34d',
+              padding: '1rem',
+              background: 'var(--color-warning-bg)',
+              border: '1px solid var(--color-warning-border)',
+              borderRadius: '8px',
+              color: 'var(--color-warning)',
               display: 'flex',
-              gap: '0.5rem',
+              gap: '0.75rem',
               alignItems: 'flex-start',
             }}
           >
-            <AlertTriangle size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <AlertTriangle size={22} style={{ flexShrink: 0, marginTop: '2px' }} />
             <div>
               <strong>Operator Authorization Sign-Off:</strong>
-              <div style={{ marginTop: '2px', color: '#fef3c7', fontSize: '0.75rem' }}>
-                You are authorizing the execution of Plan <strong className="font-mono">{planId}</strong> in the sandbox simulator. Verify that all 4 proposed mitigating actions comply with control room protocols.
+              <div style={{ marginTop: '4px', fontSize: '0.9rem', lineHeight: '1.4' }}>
+                You are authorizing the execution of Plan <strong className="font-mono">{planId}</strong> in the sandbox. Confirm that proposed road closures and pump deployments align with city protocols.
               </div>
             </div>
           </div>
 
-          {/* Plan Summary */}
           <div
             style={{
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '6px',
-              padding: '0.75rem',
+              background: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '8px',
+              padding: '1rem',
             }}
           >
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700, marginBottom: '0.4rem' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.5rem' }}>
               Verification Summary
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-              <span style={{ color: '#cbd5e1' }}>Baseline Reachability:</span>
-              <span className="font-mono" style={{ color: '#f8fafc' }}>{((simulation?.baselineScore || 0) * 100).toFixed(1)}%</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+              <span>Baseline Reachability:</span>
+              <span className="font-mono" style={{ fontWeight: 600 }}>{((simulation?.baselineScore || 0) * 100).toFixed(1)}%</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-              <span style={{ color: '#cbd5e1' }}>Verified Plan Reachability:</span>
-              <span className="font-mono" style={{ color: '#10b981', fontWeight: 700 }}>{((simulation?.planScore || 0) * 100).toFixed(1)}%</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+              <span>Verified Plan Reachability:</span>
+              <span className="font-mono" style={{ color: 'var(--color-success)', fontWeight: 700 }}>{((simulation?.planScore || 0) * 100).toFixed(1)}%</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#cbd5e1' }}>Mitigating Actions:</span>
-              <span style={{ color: '#38bdf8' }}>{plan?.actions?.length || 0} actions</span>
+              <span>Candidate Actions:</span>
+              <span>{plan?.actions?.length || 0} mitigations</span>
             </div>
           </div>
 
-          {/* Operator Note */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.35rem' }}>
-              Operator Authorization Notes (Audit Trail):
+            <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.4rem' }}>
+              Operator Authorization Notes:
             </label>
             <textarea
-              rows={2}
+              rows={3}
               value={operatorNote}
               onChange={(e) => setOperatorNote(e.target.value)}
-              placeholder="e.g. Verified road diversion and pump staging coordinates with Mahadevapura field teams."
+              placeholder="e.g., Verified diversion coordinates with Mahadevapura field marshals."
               style={{
                 width: '100%',
-                background: '#090d16',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '4px',
-                padding: '0.5rem',
-                color: '#f8fafc',
-                fontSize: '0.75rem',
+                background: 'var(--bg-app)',
+                border: '1px solid var(--border-medium)',
+                borderRadius: '6px',
+                padding: '0.75rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.95rem',
                 outline: 'none',
                 fontFamily: 'var(--font-sans)',
               }}
             />
           </div>
 
-          {/* Explicit Confirmation Checkbox */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
             <input
               type="checkbox"
               id="ack_sandbox"
               checked={acknowledgedSandbox}
               onChange={(e) => setAcknowledgedSandbox(e.target.checked)}
-              style={{ marginTop: '3px', cursor: 'pointer' }}
+              style={{ marginTop: '4px', cursor: 'pointer', width: '18px', height: '18px' }}
             />
-            <label htmlFor="ack_sandbox" style={{ fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
-              I confirm that I have reviewed the simulator reachability scores and authorize execution in the sandbox environment.
+            <label htmlFor="ack_sandbox" style={{ fontSize: '0.9rem', color: 'var(--text-primary)', cursor: 'pointer', lineHeight: '1.4' }}>
+              I confirm that I have verified the reachability simulation results and authorize execution in the sandbox environment.
             </label>
           </div>
 
-          {/* Modal Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', marginTop: '0.5rem' }}>
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
